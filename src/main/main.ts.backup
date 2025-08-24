@@ -1,0 +1,286 @@
+import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, ipcMain } from 'electron'
+import { join } from 'path'
+import { FileStorage } from '../storage'
+import { homedir } from 'os'
+
+let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let storage: FileStorage
+
+const isDev = process.env.NODE_ENV === 'development'
+const WINDOW_WIDTH = 300
+const WINDOW_HEIGHT = 400
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
+    alwaysOnTop: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    titleBarStyle: 'hiddenInset',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: join(__dirname, 'preload.js'),
+      webSecurity: !isDev
+    }
+  })
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
+  } else {
+    mainWindow.loadFile(join(__dirname, '../../renderer/index.html'))
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
+  mainWindow.on('blur', () => {
+    if (mainWindow) {
+      mainWindow.hide()
+    }
+  })
+}
+
+function createTray() {
+  // Try different paths for tray icon depending on dev vs production
+  const trayIconPath = isDev 
+    ? join(__dirname, '../../public/tray-icon.svg')
+    : join(__dirname, '../../renderer/tray-icon.svg')
+    
+  const trayIcon = nativeImage.createFromPath(trayIconPath).resize({ width: 16, height: 16 })
+  
+  tray = new Tray(trayIcon)
+  
+  const updateContextMenu = async () => {
+    try {
+      const incompleteItems = await storage.getIncompleteItems()
+      const count = incompleteItems.totalCount
+      
+      const contextMenu = Menu.buildFromTemplate([
+        {
+          label: 'Show Notes',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show()
+              mainWindow.focus()
+            } else {
+              createWindow()
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: count > 0 ? `${count} Incomplete Items` : 'All Caught Up!',
+          enabled: false
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          click: () => {
+            app.quit()
+          }
+        }
+      ])
+      
+      if (tray) {
+        tray.setContextMenu(contextMenu)
+      }
+    } catch (error) {
+      console.error('Failed to update context menu:', error)
+    }
+  }
+  
+  // Initial context menu
+  updateContextMenu()
+  
+  // Update context menu every 30 seconds
+  setInterval(updateContextMenu, 30000)
+  
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide()
+      } else {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    } else {
+      createWindow()
+    }
+  })
+}
+
+function registerGlobalShortcuts() {
+  globalShortcut.register('CommandOrControl+Shift+N', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide()
+      } else {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    } else {
+      createWindow()
+    }
+  })
+}
+
+function setupIpcHandlers() {
+  // Initialize storage
+  const notesPath = join(homedir(), 'Documents', 'Notes')
+  storage = new FileStorage(notesPath)
+
+  // Note operations
+  ipcMain.handle('save-note', async (_, { content, group, audience }) => {
+    try {
+      return await storage.saveNote(content, group, audience)
+    } catch (error) {
+      console.error('Failed to save note:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('load-notes', async () => {
+    try {
+      return await storage.loadNotes()
+    } catch (error) {
+      console.error('Failed to load notes:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('load-note', async (_, id: string) => {
+    try {
+      return await storage.loadNote(id)
+    } catch (error) {
+      console.error('Failed to load note:', error)
+      return null
+    }
+  })
+
+  ipcMain.handle('delete-note', async (_, id: string) => {
+    try {
+      return await storage.deleteNote(id)
+    } catch (error) {
+      console.error('Failed to delete note:', error)
+      return false
+    }
+  })
+
+  // Completion tracking
+  ipcMain.handle('get-incomplete-items', async () => {
+    try {
+      return await storage.getIncompleteItems()
+    } catch (error) {
+      console.error('Failed to get incomplete items:', error)
+      return { actions: [], connections: [], totalCount: 0 }
+    }
+  })
+
+  ipcMain.handle('update-badge', async (_, count: number) => {
+    if (tray) {
+      if (count > 0) {
+        tray.setTitle(count.toString())
+        tray.setToolTip(`Note Taker - ${count} incomplete items`)
+      } else {
+        tray.setTitle('')
+        tray.setToolTip('Note Taker - All caught up!')
+      }
+    }
+  })
+
+  // Window management
+  ipcMain.handle('hide-window', async () => {
+    if (mainWindow) {
+      mainWindow.hide()
+    }
+  })
+
+  // Search and filtering
+  ipcMain.handle('search-notes', async (_, query: string) => {
+    try {
+      const notes = await storage.loadNotes()
+      return notes.filter(note => 
+        note.content.toLowerCase().includes(query.toLowerCase()) ||
+        (note.group && note.group.toLowerCase().includes(query.toLowerCase())) ||
+        note.audience.some(person => person.toLowerCase().includes(query.toLowerCase()))
+      )
+    } catch (error) {
+      console.error('Failed to search notes:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('filter-by-group', async (_, group: string) => {
+    try {
+      const notes = await storage.loadNotes()
+      return notes.filter(note => note.group === group)
+    } catch (error) {
+      console.error('Failed to filter by group:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('filter-by-audience', async (_, audience: string) => {
+    try {
+      const notes = await storage.loadNotes()
+      return notes.filter(note => note.audience.includes(audience))
+    } catch (error) {
+      console.error('Failed to filter by audience:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('get-groups', async () => {
+    try {
+      return await storage.getGroups()
+    } catch (error) {
+      console.error('Failed to get groups:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('get-audience', async () => {
+    try {
+      return await storage.getAudience()
+    } catch (error) {
+      console.error('Failed to get audience:', error)
+      return []
+    }
+  })
+}
+
+app.whenReady().then(() => {
+  setupIpcHandlers()
+  createTray()
+  createWindow()
+  registerGlobalShortcuts()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
+})
+
+app.on('window-all-closed', (event: Event) => {
+  event.preventDefault()
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+})
+
+app.on('before-quit', () => {
+  if (mainWindow) {
+    mainWindow.removeAllListeners('close')
+  }
+})

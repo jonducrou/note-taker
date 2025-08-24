@@ -2,6 +2,8 @@
 
 A simple, text-driven note-taking application for Mac that stays always-on-top and focuses on quick note capture with actionable items and connections.
 
+> **Current Status**: Basic working version with text editor, incomplete item counting, and auto-save functionality. Advanced features like Monaco editor, file storage, and system tray are planned for future releases.
+
 ## Features
 
 ### 🎯 **Text-First Design**
@@ -97,10 +99,21 @@ Dev Team <x- Product requirements delivered
 ## Development
 
 ```bash
-npm install
-npm run dev        # Development mode
-npm run build      # Build for production
-npm run dist       # Create distributable
+# Run the app
+./run.sh
+
+# Development mode with hot reload
+npm run dev        
+
+# Build for production
+npm run build      
+
+# Create distributable
+npm run dist
+
+# Code quality
+npm run typecheck  # TypeScript checking
+npm run lint       # ESLint checking
 ```
 
 ## Architecture

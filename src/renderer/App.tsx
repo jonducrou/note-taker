@@ -50,33 +50,6 @@ const App: React.FC = () => {
   const monacoRef = useRef<Monaco | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Simple function to handle content changes
-  const simpleHandleContentChange = useCallback((value: string) => {
-    setContent(value)
-    
-    // Update incomplete count
-    const count = countIncompleteItems(value)
-    setIncompleteCount(count)
-    
-    // Update badge in tray
-    ;(window as any).electronAPI?.updateBadge(count)
-    
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    
-    // Auto-save after 1 second of no typing
-    saveTimeoutRef.current = setTimeout(async () => {
-      const { group, audience } = parseMetadata(value)
-      try {
-        await (window as any).electronAPI?.saveNote(value, group, audience)
-      } catch (error) {
-        console.error('Failed to save note:', error)
-      }
-    }, 1000)
-  }, [parseMetadata, countIncompleteItems])
-
   const parseMetadata = useCallback((text: string) => {
     const lines = text.split('\n')
     let group: string | undefined
@@ -117,6 +90,33 @@ const App: React.FC = () => {
     
     return count
   }, [])
+
+  // Simple function to handle content changes
+  const simpleHandleContentChange = useCallback((value: string) => {
+    setContent(value)
+    
+    // Update incomplete count
+    const count = countIncompleteItems(value)
+    setIncompleteCount(count)
+    
+    // Update badge in tray
+    ;(window as any).electronAPI?.updateBadge(count)
+    
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Auto-save after 1 second of no typing
+    saveTimeoutRef.current = setTimeout(async () => {
+      const { group, audience } = parseMetadata(value)
+      try {
+        await (window as any).electronAPI?.saveNote(value, group, audience)
+      } catch (error) {
+        console.error('Failed to save note:', error)
+      }
+    }, 1000)
+  }, [parseMetadata, countIncompleteItems])
 
   const setupMonacoLanguage = useCallback((monaco: Monaco) => {
     // Register a new language for our note format
@@ -574,7 +574,7 @@ const App: React.FC = () => {
             theme="notes-theme"
             onMount={handleEditorMount}
             loading="Loading editor..."
-            beforeMount={(monaco) => {
+            beforeMount={(_monaco) => {
               // Set a timeout to fallback if Monaco doesn't load
               setTimeout(() => {
                 if (!monacoRef.current) {

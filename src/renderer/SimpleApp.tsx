@@ -3,15 +3,8 @@ import './App.css'
 
 const SimpleApp: React.FC = () => {
   useEffect(() => {
-    console.log('=== SIMPLE APP MOUNTED ===')
-    console.log('ElectronAPI available:', !!(window as any).electronAPI)
-    console.log('Debug info:', (window as any).debugInfo)
-    
-    // Test electronAPI
-    if ((window as any).electronAPI) {
-      console.log('Testing electronAPI.test()...')
-      ;(window as any).electronAPI.test()
-    } else {
+    // Verify electronAPI is available
+    if (!(window as any).electronAPI) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error('ElectronAPI not available!')
     }
   }, [])
@@ -45,12 +38,12 @@ const SimpleApp: React.FC = () => {
     setIncompleteCount(count)
     
     // Update badge in tray (mock for now)
-    ;(window as any).electronAPI?.updateBadge(count)
+    ;(window as any).electronAPI?.updateBadge(count) // eslint-disable-line @typescript-eslint/no-explicit-any
     
     // Auto-save after 1 second of no typing (simplified)
     setTimeout(async () => {
       try {
-        await (window as any).electronAPI?.saveNote(newContent)
+        await (window as any).electronAPI?.saveNote(newContent) // eslint-disable-line @typescript-eslint/no-explicit-any
         console.log('Note saved')
       } catch (error) {
         console.error('Failed to save note:', error)
@@ -59,18 +52,7 @@ const SimpleApp: React.FC = () => {
   }, [countIncompleteItems])
 
   return (
-    <div className="app" style={{ background: '#f0f0f0' }}>
-      {/* Debug header */}
-      <div style={{ 
-        background: '#007AFF', 
-        color: 'white', 
-        padding: '5px 10px', 
-        fontSize: '12px',
-        fontWeight: 'bold'
-      }}>
-        ✅ React App Loaded Successfully - ElectronAPI: {(window as any).electronAPI ? '✅' : '❌'}
-      </div>
-      
+    <div className="app">
       {incompleteCount > 0 && (
         <div className="header">
           <div className="incomplete-badge">
@@ -85,31 +67,18 @@ const SimpleApp: React.FC = () => {
           onChange={handleContentChange}
           style={{
             width: '100%',
-            height: 'calc(100% - 30px)', // Account for debug header
-            border: '2px solid #007AFF',
+            height: '100%',
+            border: 'none',
             outline: 'none',
             padding: '20px',
             fontSize: '14px',
             fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", Monaco, Menlo, monospace',
             resize: 'none',
-            background: 'white',
+            background: 'transparent',
             lineHeight: '1.4'
           }}
-          placeholder="🎯 Click here and start typing your note... This should be interactive!"
+          placeholder="Start typing your note..."
         />
-      </div>
-      
-      <div style={{ 
-        position: 'absolute', 
-        bottom: '5px', 
-        left: '5px', 
-        fontSize: '10px', 
-        color: '#666',
-        userSelect: 'none',
-        background: 'yellow',
-        padding: '2px 5px'
-      }}>
-        Simple Note Taker - Window is interactive: {document.hasFocus() ? '✅' : '❌'}
       </div>
     </div>
   )

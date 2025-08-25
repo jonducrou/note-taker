@@ -1,9 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import SimpleApp from './SimpleApp'
+import App from './App'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <SimpleApp />
+    <App />
   </React.StrictMode>
 )

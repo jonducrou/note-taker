@@ -215,6 +215,66 @@ export class FileStorage {
     return Array.from(audience).sort()
   }
 
+  async getRecentGroupSuggestions(prefix?: string): Promise<string[]> {
+    const twoWeeksAgo = new Date()
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
+    
+    const notes = await this.loadNotes()
+    const groups = new Set<string>()
+    
+    notes.forEach(note => {
+      const noteDate = typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : new Date(note.metadata.date).toISOString().split('T')[0]
+      
+      if (noteDate >= twoWeeksAgoStr && note.metadata.group) {
+        groups.add(note.metadata.group)
+      }
+    })
+    
+    let results = Array.from(groups).sort()
+    
+    if (prefix) {
+      const lowerPrefix = prefix.toLowerCase()
+      results = results.filter(group => 
+        group.toLowerCase().startsWith(lowerPrefix)
+      )
+    }
+    
+    return results
+  }
+
+  async getRecentAudienceSuggestions(prefix?: string): Promise<string[]> {
+    const twoWeeksAgo = new Date()
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
+    
+    const notes = await this.loadNotes()
+    const audience = new Set<string>()
+    
+    notes.forEach(note => {
+      const noteDate = typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : new Date(note.metadata.date).toISOString().split('T')[0]
+      
+      if (noteDate >= twoWeeksAgoStr && note.metadata.audience) {
+        note.metadata.audience.forEach(a => audience.add(a))
+      }
+    })
+    
+    let results = Array.from(audience).sort()
+    
+    if (prefix) {
+      const lowerPrefix = prefix.toLowerCase()
+      results = results.filter(person => 
+        person.toLowerCase().startsWith(lowerPrefix)
+      )
+    }
+    
+    return results
+  }
+
   countIncompleteItems(content: string): number {
     const lines = content.split('\n')
     let count = 0

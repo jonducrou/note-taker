@@ -342,6 +342,14 @@ ipcMain.handle('get-audience-suggestions', async () => {
   return await fileStorage.getAudienceSuggestions()
 })
 
+ipcMain.handle('get-recent-group-suggestions', async (_event, prefix?: string) => {
+  return await fileStorage.getRecentGroupSuggestions(prefix)
+})
+
+ipcMain.handle('get-recent-audience-suggestions', async (_event, prefix?: string) => {
+  return await fileStorage.getRecentAudienceSuggestions(prefix)
+})
+
 ipcMain.handle('update-badge', async (_event, count: number) => {
   updateTrayBadge(count)
   return { success: true }

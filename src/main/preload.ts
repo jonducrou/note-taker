@@ -38,6 +38,14 @@ const electronAPI = {
     return ipcRenderer.invoke('get-audience-suggestions')
   },
   
+  getRecentGroupSuggestions: (prefix?: string): Promise<string[]> => {
+    return ipcRenderer.invoke('get-recent-group-suggestions', prefix)
+  },
+  
+  getRecentAudienceSuggestions: (prefix?: string): Promise<string[]> => {
+    return ipcRenderer.invoke('get-recent-audience-suggestions', prefix)
+  },
+  
   updateBadge: (count: number): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('update-badge', count)
   },

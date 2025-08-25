@@ -33,6 +33,14 @@ Create a minimalist, always-on-top note-taking app for Mac that prioritises text
 - **Window Behaviour**: Auto-hide on focus loss, always-on-top when visible
 - **Performance**: Lightweight footprint, instant startup
 
+### Phase 5: Menu Bar Enhancement (🔄 In Progress)
+**Objective**: Improve system tray interaction with distinct click behaviours
+- **Left Click**: Simple show/hide window toggle (no menu popup)
+- **Right Click**: Contextual menu with hierarchical note access
+- **Menu Structure**: Today/Yesterday/Previous Week with group/audience submenus
+- **Incomplete Counters**: Show actionable items count per note group
+- **Always Fresh**: Ensure run script always builds latest version
+
 ## 🏗️ Architecture Decisions
 
 ### **Text-First Philosophy**

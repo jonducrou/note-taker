@@ -1,29 +1,62 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+
+export interface Note {
+  id: string
+  filename: string
+  metadata: {
+    date: string
+    group?: string
+    audience?: string[]
+    created_at: string
+    updated_at: string
+  }
+  content: string
+}
 
 const electronAPI = {
-  saveNote: (_content: string, _group?: string, _audience?: string[]) => {
-    // Mock implementation - will be replaced with real IPC calls
-    return Promise.resolve({ id: `note-${Date.now()}`, success: true })
+  saveNote: (content: string, group?: string, audience?: string[]): Promise<{ id: string; success: boolean }> => {
+    return ipcRenderer.invoke('save-note', content, group, audience)
   },
   
-  loadNotes: () => {
-    return Promise.resolve([])
+  loadNotes: (): Promise<Note[]> => {
+    return ipcRenderer.invoke('load-notes')
   },
   
-  updateBadge: (_count: number) => {
-    return Promise.resolve()
+  loadRecentNote: (): Promise<Note | null> => {
+    return ipcRenderer.invoke('load-recent-note')
   },
   
-  hideWindow: () => {
-    return Promise.resolve()
+  searchNotes: (query: string): Promise<Note[]> => {
+    return ipcRenderer.invoke('search-notes', query)
   },
   
-  getGroups: () => {
-    return Promise.resolve([])
+  getGroupSuggestions: (): Promise<string[]> => {
+    return ipcRenderer.invoke('get-group-suggestions')
   },
   
-  getAudience: () => {
-    return Promise.resolve([])
+  getAudienceSuggestions: (): Promise<string[]> => {
+    return ipcRenderer.invoke('get-audience-suggestions')
+  },
+  
+  updateBadge: (count: number): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('update-badge', count)
+  },
+  
+  createNewNote: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('create-new-note')
+  },
+  
+  loadNoteById: (noteId: string): Promise<Note | null> => {
+    return ipcRenderer.invoke('load-note-by-id', noteId)
+  },
+  
+  updateExistingNote: (noteId: string, content: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('update-existing-note', noteId, content)
+  },
+  
+  // Listen for note loading messages from menu
+  onLoadNote: (callback: (noteId: string) => void) => {
+    ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))
   }
 }
 

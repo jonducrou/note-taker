@@ -1,9 +1,41 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron'
+import { app, BrowserWindow, Menu, dialog, Tray, ipcMain } from 'electron'
 import { join } from 'path'
+import * as fs from 'fs'
+import { FileStorage } from '../storage/FileStorage'
+
+// Get version from app instead of requiring package.json
+const appVersion = app.getVersion()
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+const fileStorage = new FileStorage()
 
 const isDev = process.env.NODE_ENV === 'development'
+
+function getTrayIconPath(): string | null {
+  // Check if we're running from the project directory (assets folder exists)
+  const isRunningFromProject = fs.existsSync(join(process.cwd(), 'assets'))
+  
+  let trayIconPath: string
+  
+  if (isRunningFromProject) {
+    // Try the SVG-converted 32x32 PNG first, fallback to original PNG
+    trayIconPath = join(process.cwd(), 'assets/tray-icon-32.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    trayIconPath = join(process.cwd(), 'assets/tray-icon.png')
+  } else {
+    // Running from packaged app - use resources folder
+    trayIconPath = join(process.resourcesPath, 'assets/tray-icon-32.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    trayIconPath = join(process.resourcesPath, 'assets/tray-icon.png')
+  }
+  
+  return fs.existsSync(trayIconPath) ? trayIconPath : null
+}
 
 function createWindow() {
   try {
@@ -13,8 +45,8 @@ function createWindow() {
     
     const windowWidth = 300
     const windowHeight = 400
-    const x = Math.floor((screenWidth - windowWidth) / 2)
-    const y = Math.floor((screenHeight - windowHeight) / 2)
+    const x = screenWidth - windowWidth - 20  // 20px from right edge
+    const y = screenHeight - windowHeight - 20  // 20px from bottom edge
     
     mainWindow = new BrowserWindow({
       width: windowWidth,
@@ -66,11 +98,7 @@ function createWindow() {
       mainWindow = null
     })
     
-    mainWindow.on('blur', () => {
-      if (mainWindow) {
-        mainWindow.hide()
-      }
-    })
+    // Remove auto-hide on blur - window should stay visible
     
     return mainWindow
   } catch (error) {
@@ -78,6 +106,157 @@ function createWindow() {
     dialog.showErrorBox('Window Creation Failed', `Failed to create Note Taker window:\n\n${error}`)
     return null
   }
+}
+
+async function createTray() {
+  try {
+    const trayIconPath = getTrayIconPath()
+    
+    if (!trayIconPath) {
+      console.warn('Tray icon not found, menu bar will not be available')
+      return
+    }
+    
+    tray = new Tray(trayIconPath)
+    tray.setToolTip('Note Taker')
+    
+    // Left click: show/hide window  
+    tray.on('click', () => {
+      console.log('Tray click detected')
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide()
+        } else {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      } else {
+        createWindow()
+      }
+    })
+    
+    // Right click: show context menu
+    tray.on('right-click', async () => {
+      console.log('Tray right-click detected')
+      const menuItems = await buildDynamicTrayMenu()
+      const contextMenu = Menu.buildFromTemplate(menuItems as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+      tray?.popUpContextMenu(contextMenu)
+    })
+  } catch (error) {
+    console.warn('Failed to create system tray:', error)
+  }
+}
+
+async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    const todayNotes = await fileStorage.getNotesForToday()
+    const yesterdayNotes = await fileStorage.getNotesForYesterday()
+    const previousWeekNotes = await fileStorage.getNotesForPreviousWeek()
+    
+    console.log('Menu data - Today:', todayNotes.length, 'Yesterday:', yesterdayNotes.length, 'Previous week:', previousWeekNotes.length)
+    
+
+    const buildMenuItems = (notes: any[], label: string) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
+      const items: any[] = [] // eslint-disable-line @typescript-eslint/no-explicit-any
+      
+      Object.entries(grouped).forEach(([key, notesList]) => {
+        const totalIncomplete = notesList.reduce((sum, note) => {
+          return sum + fileStorage.countIncompleteItems(note.content)
+        }, 0)
+        
+        // Only show entries that have incomplete items or are proper groups
+        const hasProperGroup = !key.startsWith('No Group') && key.length > 3 && key.includes(' @')
+        const hasIncompleteItems = totalIncomplete > 0
+        
+        if (hasProperGroup || (key.startsWith('No Group') && hasIncompleteItems)) {
+          const displayLabel = totalIncomplete > 0 ? `${key} (${totalIncomplete})` : key
+          
+          items.push({
+            label: displayLabel,
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('load-note', notesList[0].id)
+                mainWindow.show()
+                mainWindow.focus()
+              }
+            }
+          })
+        }
+      })
+      
+      return items.length > 0 ? [{
+        label: label,
+        submenu: items
+      }] : []
+    }
+
+    const dynamicItems = [
+      ...buildMenuItems(todayNotes, 'Today'),
+      ...buildMenuItems(yesterdayNotes, 'Yesterday'), 
+      ...buildMenuItems(previousWeekNotes, 'Previous Week')
+    ]
+
+    return [
+      {
+        label: 'Show Notes',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show()
+            mainWindow.focus()
+          } else {
+            createWindow()
+          }
+        }
+      },
+      { type: 'separator' },
+      ...dynamicItems,
+      { type: 'separator' },
+      {
+        label: `Note Taker v${appVersion}`,
+        enabled: false
+      },
+      {
+        label: 'Quit Note Taker',
+        click: () => {
+          app.quit()
+        }
+      }
+    ]
+  } catch (error) {
+    console.error('Failed to build dynamic menu:', error)
+    return [
+      {
+        label: 'Show Notes',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show()
+            mainWindow.focus()
+          } else {
+            createWindow()
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit Note Taker',
+        click: () => {
+          app.quit()
+        }
+      }
+    ]
+  }
+}
+
+function updateTrayBadge(count: number) {
+  // Update dock badge only
+  if (count > 0) {
+    app.setBadgeCount(count)
+  } else {
+    app.setBadgeCount(0)
+  }
+  
+  // The menu will be rebuilt on next right-click, so no explicit refresh needed here
 }
 
 function createMenu() {
@@ -114,8 +293,109 @@ function createMenu() {
 }
 
 
-app.whenReady().then(() => {
+// IPC handlers for file operations
+ipcMain.handle('save-note', async (_event, content: string, group?: string, audience?: string[]) => {
+  return await fileStorage.saveNote(content, group, audience)
+})
+
+ipcMain.handle('load-notes', async () => {
+  return await fileStorage.loadNotes()
+})
+
+ipcMain.handle('load-recent-note', async () => {
+  return await fileStorage.loadMostRecentNote()
+})
+
+ipcMain.handle('search-notes', async (_event, query: string) => {
+  return await fileStorage.searchNotes(query)
+})
+
+ipcMain.handle('get-group-suggestions', async () => {
+  return await fileStorage.getGroupSuggestions()
+})
+
+ipcMain.handle('get-audience-suggestions', async () => {
+  return await fileStorage.getAudienceSuggestions()
+})
+
+ipcMain.handle('update-badge', async (_event, count: number) => {
+  updateTrayBadge(count)
+  return { success: true }
+})
+
+ipcMain.handle('create-new-note', async () => {
+  // Signal to create new note - just return success for now
+  // Frontend will handle clearing current content and starting fresh
+  return { success: true }
+})
+
+ipcMain.handle('get-menu-structure', async () => {
+  try {
+    const todayNotes = await fileStorage.getNotesForToday()
+    const yesterdayNotes = await fileStorage.getNotesForYesterday()
+    const previousWeekNotes = await fileStorage.getNotesForPreviousWeek()
+
+    const buildMenuItems = (notes: any[], label: string) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
+      const items: any[] = [] // eslint-disable-line @typescript-eslint/no-explicit-any
+      
+      Object.entries(grouped).forEach(([key, notesList]) => {
+        const totalIncomplete = notesList.reduce((sum, note) => {
+          return sum + fileStorage.countIncompleteItems(note.content)
+        }, 0)
+        
+        const displayLabel = totalIncomplete > 0 ? `${key} (${totalIncomplete})` : key
+        
+        items.push({
+          label: displayLabel,
+          noteId: notesList[0].id,
+          incompleteCount: totalIncomplete
+        })
+      })
+      
+      return items.length > 0 ? [{
+        label: label,
+        submenu: items
+      }] : []
+    }
+
+    const menuStructure = [
+      ...buildMenuItems(todayNotes, 'Today'),
+      ...buildMenuItems(yesterdayNotes, 'Yesterday'), 
+      ...buildMenuItems(previousWeekNotes, 'Previous Week')
+    ]
+
+    return { menuStructure }
+  } catch (error) {
+    console.error('Failed to build menu structure:', error)
+    return { menuStructure: [] }
+  }
+})
+
+ipcMain.handle('load-note-by-id', async (_event, noteId: string) => {
+  try {
+    const notes = await fileStorage.loadNotes()
+    const note = notes.find(n => n.id === noteId)
+    return note || null
+  } catch (error) {
+    console.error('Failed to load note by ID:', error)
+    return null
+  }
+})
+
+ipcMain.handle('update-existing-note', async (_event, noteId: string, content: string) => {
+  try {
+    await fileStorage.updateExistingNote(noteId, content)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update existing note:', error)
+    return { success: false }
+  }
+})
+
+app.whenReady().then(async () => {
   createMenu()
+  await createTray()
   createWindow()
 
   app.on('activate', () => {
@@ -127,4 +407,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', (_event: Event) => {
   _event.preventDefault()
+})
+
+app.on('before-quit', () => {
+  if (tray) {
+    tray.destroy()
+  }
 })

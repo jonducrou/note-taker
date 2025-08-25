@@ -13,7 +13,7 @@ A simple, text-driven note-taking application for Mac that stays always-on-top a
 - System tray integration with global hotkey (Cmd+Shift+N)
 
 ### 📝 **Smart Note Format**
-- **Metadata**: `@group:Product @audience:Sarah,DevTeam`
+- **Metadata**: `#group @audience:Sarah,DevTeam`
 - **Actions**: `[]` (incomplete) → `[x]` (completed)
 - **Connections**: `Subject -> Subject` (incomplete) → `Subject -x> Subject` (completed)
 - **Reverse Connections**: `Subject <- Subject` (incomplete) → `Subject <x- Subject` (completed)
@@ -33,7 +33,7 @@ A simple, text-driven note-taking application for Mac that stays always-on-top a
 - `/recent` - Most recently updated note
 - `/new` - Create new note
 - `/search:keyword` - Search across all notes
-- `/group:Product` - Filter by group
+- `/#Product` - Filter by group
 - `/audience:Sarah` - Filter by audience member
 - `/incomplete` - Show all incomplete items summary
 
@@ -47,7 +47,7 @@ A simple, text-driven note-taking application for Mac that stays always-on-top a
 Notes are stored as markdown files in `~/Documents/Notes/` with:
 - **Filename**: `YYYY-MM-DD_Group_HHMM.md`
 - **Format**: YAML frontmatter + markdown content
-- **Metadata**: Extracted from `@group:` and `@audience:` tags
+- **Metadata**: Extracted from `#group` and `@audience:` tags
 
 ## Example Note
 
@@ -60,7 +60,7 @@ created_at: 2025-08-24T10:30:00Z
 updated_at: 2025-08-24T10:30:00Z
 ---
 
-@group:Product @audience:Sarah,DevTeam
+#Product @audience:Sarah,DevTeam
 
 # Product Meeting Notes
 
@@ -82,7 +82,7 @@ Dev Team <x- Product requirements delivered
 ### Getting Started
 1. Launch the app - it appears as a small always-on-top window
 2. Start typing immediately with the text-first interface
-3. Use `@group:` and `@audience:` to add metadata
+3. Use `#group` and `@audience:` to add metadata
 4. Add action items with `[]` and connections with `Subject -> Subject`
 
 ### Navigation
@@ -114,11 +114,14 @@ npm run dist
 # Code quality
 npm run typecheck  # TypeScript checking
 npm run lint       # ESLint checking
+npm run test       # Unit tests
+npm run test:coverage  # Coverage report
 ```
 
 ## Architecture
 
 - **Frontend**: React + TypeScript + Monaco Editor
-- **Backend**: Electron main process
+- **Backend**: Electron main process with SVG-based tray icon
 - **Storage**: Local markdown files with abstracted interface
+- **Testing**: Jest with comprehensive unit test coverage
 - **IPC**: Electron IPC for file operations and search

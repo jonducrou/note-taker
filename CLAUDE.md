@@ -19,7 +19,7 @@ A minimalist, always-on-top note-taking application for Mac built with Electron 
 
 ### Note Format
 ```markdown
-@group:Product @audience:Sarah,DevTeam
+#Product @audience:Sarah,DevTeam
 
 # Meeting Notes
 
@@ -53,15 +53,27 @@ src/
 - ✅ Text command system (/today, /recent, /search:, etc.)
 - ✅ System tray integration with completion badge
 - ✅ Cross-note completion tracking and aggregation
+- ✅ Dynamic context menu with left-click/right-click separation
+- ✅ SVG-based tray icon with automatic PNG conversion
+- ✅ Comprehensive unit testing suite with Jest
 
 ## Development Commands
 - `npm run dev` - Development mode with hot reload
 - `npm run build` - Build production version
 - `npm run typecheck` - TypeScript type checking
+- `npm run lint` - ESLint code quality checks
+- `npm run test` - Run core unit tests
+- `npm run test:coverage` - Run tests with coverage report
 - `npm run dist` - Create distributable package
+
+## Testing
+- **Framework**: Jest with TypeScript support
+- **Coverage**: 26+ tests covering FileStorage and core functionality
+- **Mocking**: Proper isolation of file system and Electron APIs
+- **Test Files**: `src/__tests__/FileStorage.test.ts`, `src/__tests__/basic.test.ts`
 
 ## Notes Directory Structure
 - **Location**: `~/Documents/Notes/`
 - **Filename**: `YYYY-MM-DD_Group_HHMM.md`
 - **Format**: YAML frontmatter + markdown content
-- **Metadata**: Extracted from inline `@group:` and `@audience:` tags
+- **Metadata**: Extracted from inline `#group` and `@audience:` tags

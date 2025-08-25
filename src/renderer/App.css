@@ -7,10 +7,26 @@
 }
 
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   position: absolute;
-  top: 8px;
-  right: 12px;
+  top: 0;
+  left: 72px; /* Leave space for macOS window controls */
+  right: 0;
+  height: 32px;
+  padding: 8px 12px;
   z-index: 10;
+  -webkit-app-region: drag; /* Make header draggable */
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-right {
+  flex: 0;
+  -webkit-app-region: no-drag; /* Make button clickable */
 }
 
 .incomplete-badge {
@@ -27,6 +43,7 @@
   flex: 1;
   height: 100%;
   overflow: hidden;
+  margin-top: 35px; /* Make room for the header */
 }
 
 .loading {

@@ -25,6 +25,12 @@ run_dev() {
 }
 
 run_prod() {
+    echo "🔨 Building latest version..."
+    npm run build
+    
+    echo "📦 Creating distribution package..."
+    npm run dist
+    
     local app_path="./release/mac-arm64/Note Taker.app"
     
     if [ -d "$app_path" ]; then
@@ -32,8 +38,7 @@ run_prod() {
         open "$app_path"
     else
         echo "❌ Production app not found at: $app_path"
-        echo "💡 Try running: npm run build && npm run dist"
-        echo "📝 Or run in development mode: ./run.sh dev"
+        echo "📝 Try running in development mode: ./run.sh dev"
         exit 1
     fi
 }

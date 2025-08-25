@@ -75,7 +75,7 @@ Subject1 -> Subject2`),
         '#TestGroup @audience:TestUser\n[] Task 1\n[x] Completed task\nSubject1 -> Subject2'
       )
       expect(saveResult.success).toBe(true)
-      expect(saveResult.id).toMatch(/\d{4}-\d{2}-\d{2}_\d{4}\.md/)
+      expect(saveResult.id).toMatch(/\d{4}-\d{2}-\d{2}_\d{6}\.md/)
 
       // Test note loading
       const notes = await fileStorage.loadNotes()

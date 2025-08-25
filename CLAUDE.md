@@ -74,6 +74,6 @@ src/
 
 ## Notes Directory Structure
 - **Location**: `~/Documents/Notes/`
-- **Filename**: `YYYY-MM-DD_Group_HHMM.md`
+- **Filename**: `YYYY-MM-DD_HHMMSS.md`
 - **Format**: YAML frontmatter + markdown content
 - **Metadata**: Extracted from inline `#group` and `@audience:` tags

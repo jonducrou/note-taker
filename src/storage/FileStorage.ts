@@ -48,7 +48,7 @@ export class FileStorage {
   generateFilename(): string {
     const now = new Date()
     const date = now.toISOString().split('T')[0] // YYYY-MM-DD
-    const time = now.toTimeString().slice(0, 5).replace(':', '') // HHMM
+    const time = now.toTimeString().slice(0, 8).replace(/:/g, '') // HHMMSS
     return `${date}_${time}.md`
   }
 

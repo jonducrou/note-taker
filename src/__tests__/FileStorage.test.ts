@@ -83,7 +83,7 @@ describe('FileStorage', () => {
       const filename = fileStorage.generateFilename()
       
       // The exact time will depend on timezone, so just check the pattern
-      expect(filename).toMatch(/2024-08-25_\d{4}\.md/)
+      expect(filename).toMatch(/2024-08-25_\d{6}\.md/)
       spy.mockRestore()
     })
 
@@ -99,8 +99,8 @@ describe('FileStorage', () => {
       const filename2 = fileStorage.generateFilename()
       spy2.mockRestore()
       
-      expect(filename1).toMatch(/2024-08-25_\d{4}\.md/)
-      expect(filename2).toMatch(/2024-08-25_\d{4}\.md/)
+      expect(filename1).toMatch(/2024-08-25_\d{6}\.md/)
+      expect(filename2).toMatch(/2024-08-25_\d{6}\.md/)
       expect(filename1).not.toBe(filename2)
     })
   })
@@ -243,7 +243,7 @@ Subject7 <x- Subject8
       const result = await fileStorage.saveNote('#ProjectAlpha @audience:Sarah\nMeeting notes')
       
       expect(result.success).toBe(true)
-      expect(result.id).toMatch(/2024-08-25_\d{4}\.md/)
+      expect(result.id).toMatch(/2024-08-25_\d{6}\.md/)
       expect(mockFs.writeFile).toHaveBeenCalledWith(
         expect.stringContaining('/mock/home/Documents/Notes/2024-08-25_'),
         expect.stringContaining('group: ProjectAlpha'),

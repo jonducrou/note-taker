@@ -45,7 +45,7 @@ A simple, text-driven note-taking application for Mac that stays always-on-top a
 ## File Structure
 
 Notes are stored as markdown files in `~/Documents/Notes/` with:
-- **Filename**: `YYYY-MM-DD_Group_HHMM.md`
+- **Filename**: `YYYY-MM-DD_HHMMSS.md`
 - **Format**: YAML frontmatter + markdown content
 - **Metadata**: Extracted from `#group` and `@audience:` tags
 

@@ -6,12 +6,12 @@ describe('Basic Application Tests', () => {
   describe('Application Constants', () => {
     it('should have consistent note format patterns', () => {
       const datePattern = /^\d{4}-\d{2}-\d{2}$/
-      const timePattern = /^\d{4}$/
-      const filenamePattern = /^\d{4}-\d{2}-\d{2}_\d{4}\.md$/
+      const timePattern = /^\d{6}$/
+      const filenamePattern = /^\d{4}-\d{2}-\d{2}_\d{6}\.md$/
       
       expect('2024-08-25').toMatch(datePattern)
-      expect('1430').toMatch(timePattern)
-      expect('2024-08-25_1430.md').toMatch(filenamePattern)
+      expect('143045').toMatch(timePattern)
+      expect('2024-08-25_143045.md').toMatch(filenamePattern)
     })
 
     it('should parse metadata patterns correctly', () => {

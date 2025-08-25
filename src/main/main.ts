@@ -138,7 +138,7 @@ async function createTray() {
     // Right click: show context menu
     tray.on('right-click', async () => {
       console.log('Tray right-click detected')
-      const menuItems = await buildDynamicTrayMenu()
+      const menuItems = cachedMenuItems || await buildPermanentTrayMenu()
       const contextMenu = Menu.buildFromTemplate(menuItems as any) // eslint-disable-line @typescript-eslint/no-explicit-any
       tray?.popUpContextMenu(contextMenu)
     })
@@ -147,16 +147,24 @@ async function createTray() {
   }
 }
 
-async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
+// Cache for menu items to avoid rebuilding on every right-click
+let cachedMenuItems: any[] | null = null
+
+async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const todayNotes = await fileStorage.getNotesForToday()
     const yesterdayNotes = await fileStorage.getNotesForYesterday()
-    const previousWeekNotes = await fileStorage.getNotesForPreviousWeek()
     
-    console.log('Menu data - Today:', todayNotes.length, 'Yesterday:', yesterdayNotes.length, 'Previous week:', previousWeekNotes.length)
+    console.log('Building menu - Today:', todayNotes.length, 'Yesterday:', yesterdayNotes.length)
     
+    const buildSubmenuItems = (notes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (notes.length === 0) {
+        return [{
+          label: 'No notes',
+          enabled: false
+        }]
+      }
 
-    const buildMenuItems = (notes: any[], label: string) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
       const items: any[] = [] // eslint-disable-line @typescript-eslint/no-explicit-any
       
@@ -165,39 +173,24 @@ async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @
           return sum + fileStorage.countIncompleteItems(note.content)
         }, 0)
         
-        // Only show entries that have incomplete items or are proper groups
-        const hasProperGroup = !key.startsWith('No Group') && key.length > 3 && key.includes(' @')
-        const hasIncompleteItems = totalIncomplete > 0
+        const displayLabel = totalIncomplete > 0 ? `${key} (${totalIncomplete})` : key
         
-        if (hasProperGroup || (key.startsWith('No Group') && hasIncompleteItems)) {
-          const displayLabel = totalIncomplete > 0 ? `${key} (${totalIncomplete})` : key
-          
-          items.push({
-            label: displayLabel,
-            click: () => {
-              if (mainWindow) {
-                mainWindow.webContents.send('load-note', notesList[0].id)
-                mainWindow.show()
-                mainWindow.focus()
-              }
+        items.push({
+          label: displayLabel,
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('load-note', notesList[0].id)
+              mainWindow.show()
+              mainWindow.focus()
             }
-          })
-        }
+          }
+        })
       })
       
-      return items.length > 0 ? [{
-        label: label,
-        submenu: items
-      }] : []
+      return items
     }
 
-    const dynamicItems = [
-      ...buildMenuItems(todayNotes, 'Today'),
-      ...buildMenuItems(yesterdayNotes, 'Yesterday'), 
-      ...buildMenuItems(previousWeekNotes, 'Previous Week')
-    ]
-
-    return [
+    const menuItems = [
       {
         label: 'Show Notes',
         click: () => {
@@ -210,7 +203,14 @@ async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @
         }
       },
       { type: 'separator' },
-      ...dynamicItems,
+      {
+        label: 'Today',
+        submenu: buildSubmenuItems(todayNotes)
+      },
+      {
+        label: 'Yesterday', 
+        submenu: buildSubmenuItems(yesterdayNotes)
+      },
       { type: 'separator' },
       {
         label: `Note Taker v${appVersion}`,
@@ -223,8 +223,13 @@ async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @
         }
       }
     ]
+    
+    // Cache the menu items
+    cachedMenuItems = menuItems
+    return menuItems
+    
   } catch (error) {
-    console.error('Failed to build dynamic menu:', error)
+    console.error('Failed to build menu:', error)
     return [
       {
         label: 'Show Notes',
@@ -239,6 +244,15 @@ async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @
       },
       { type: 'separator' },
       {
+        label: 'Today',
+        submenu: [{ label: 'No notes', enabled: false }]
+      },
+      {
+        label: 'Yesterday',
+        submenu: [{ label: 'No notes', enabled: false }]
+      },
+      { type: 'separator' },
+      {
         label: 'Quit Note Taker',
         click: () => {
           app.quit()
@@ -246,6 +260,13 @@ async function buildDynamicTrayMenu(): Promise<any[]> { // eslint-disable-line @
       }
     ]
   }
+}
+
+// Function to refresh the cached menu
+async function refreshTrayMenu(): Promise<void> {
+  console.log('Refreshing tray menu...')
+  cachedMenuItems = null // Clear cache
+  await buildPermanentTrayMenu() // Rebuild cache
 }
 
 function updateTrayBadge(count: number) {
@@ -295,7 +316,10 @@ function createMenu() {
 
 // IPC handlers for file operations
 ipcMain.handle('save-note', async (_event, content: string, group?: string, audience?: string[]) => {
-  return await fileStorage.saveNote(content, group, audience)
+  const result = await fileStorage.saveNote(content, group, audience)
+  // Refresh tray menu to reflect new note
+  await refreshTrayMenu()
+  return result
 })
 
 ipcMain.handle('load-notes', async () => {
@@ -386,6 +410,8 @@ ipcMain.handle('load-note-by-id', async (_event, noteId: string) => {
 ipcMain.handle('update-existing-note', async (_event, noteId: string, content: string) => {
   try {
     await fileStorage.updateExistingNote(noteId, content)
+    // Refresh tray menu to reflect updated note
+    await refreshTrayMenu()
     return { success: true }
   } catch (error) {
     console.error('Failed to update existing note:', error)

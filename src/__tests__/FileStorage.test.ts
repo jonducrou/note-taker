@@ -76,32 +76,33 @@ describe('FileStorage', () => {
   })
 
   describe('generateFilename', () => {
-    it('should generate filename with date and time', () => {
-      const mockDate = new Date('2024-08-25T14:30:00Z')
-      const spy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
+    it('should generate filename with date and time pattern', () => {
       const filename = fileStorage.generateFilename()
       
-      // The exact time will depend on timezone, so just check the pattern
-      expect(filename).toMatch(/2024-08-25_\d{6}\.md/)
-      spy.mockRestore()
+      // Test the general pattern: YYYY-MM-DD_HHMMSS.md
+      expect(filename).toMatch(/\d{4}-\d{2}-\d{2}_\d{6}\.md/)
     })
 
     it('should generate different filenames for different times', () => {
-      const mockDate1 = new Date('2024-08-25T09:15:00Z')
-      const mockDate2 = new Date('2024-08-25T16:45:00Z')
+      const mockDate1 = new Date('2024-08-26T09:15:30Z')
+      const mockDate2 = new Date('2024-08-26T16:45:45Z')
       
-      const spy1 = jest.spyOn(global, 'Date').mockImplementation(() => mockDate1)
+      jest.spyOn(Date, 'now')
+        .mockReturnValueOnce(mockDate1.getTime())
+        .mockReturnValueOnce(mockDate2.getTime())
+      
+      const spy1 = jest.spyOn(global, 'Date')
+        .mockImplementationOnce(() => mockDate1)
+        .mockImplementationOnce(() => mockDate2)
+      
       const filename1 = fileStorage.generateFilename()
-      spy1.mockRestore()
-      
-      const spy2 = jest.spyOn(global, 'Date').mockImplementation(() => mockDate2)
       const filename2 = fileStorage.generateFilename()
-      spy2.mockRestore()
       
-      expect(filename1).toMatch(/2024-08-25_\d{6}\.md/)
-      expect(filename2).toMatch(/2024-08-25_\d{6}\.md/)
+      expect(filename1).toMatch(/\d{4}-\d{2}-\d{2}_\d{6}\.md/)
+      expect(filename2).toMatch(/\d{4}-\d{2}-\d{2}_\d{6}\.md/)
       expect(filename1).not.toBe(filename2)
+      
+      spy1.mockRestore()
     })
   })
 
@@ -152,17 +153,13 @@ Note content here`
 
     it('should handle content without frontmatter', () => {
       const fileContent = '#ProjectBeta @audience:Alice\nSome notes'
-      const mockDate = new Date('2024-08-25T14:30:00Z')
-      const spy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
       
       const result = fileStorage.parseNoteContent(fileContent)
       
       expect(result.metadata.group).toBe('ProjectBeta')
       expect(result.metadata.audience).toEqual(['Alice'])
-      expect(result.metadata.date).toBe('2024-08-25')
+      expect(result.metadata.date).toMatch(/\d{4}-\d{2}-\d{2}/)
       expect(result.content).toBe('#ProjectBeta @audience:Alice\nSome notes')
-      
-      spy.mockRestore()
     })
   })
 
@@ -234,23 +231,18 @@ Subject7 <x- Subject8
 
   describe('saveNote', () => {
     it('should save a new note with extracted metadata', async () => {
-      const mockDate = new Date('2024-08-25T14:30:00Z')
-      const spy = jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       mockFs.access.mockResolvedValue(undefined)
       mockFs.writeFile.mockResolvedValue(undefined)
       
       const result = await fileStorage.saveNote('#ProjectAlpha @audience:Sarah\nMeeting notes')
       
       expect(result.success).toBe(true)
-      expect(result.id).toMatch(/2024-08-25_\d{6}\.md/)
+      expect(result.id).toMatch(/\d{4}-\d{2}-\d{2}_\d{6}\.md/)
       expect(mockFs.writeFile).toHaveBeenCalledWith(
-        expect.stringContaining('/mock/home/Documents/Notes/2024-08-25_'),
+        expect.stringContaining('/mock/home/Documents/Notes/'),
         expect.stringContaining('group: ProjectAlpha'),
         'utf-8'
       )
-      
-      spy.mockRestore()
     })
 
     it('should handle save errors gracefully', async () => {

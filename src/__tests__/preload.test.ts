@@ -18,12 +18,11 @@ jest.mock('electron', () => ({
 const mockContextBridge = contextBridge as jest.Mocked<typeof contextBridge>
 const mockIpcRenderer = ipcRenderer as jest.Mocked<typeof ipcRenderer>
 
-// Import preload after mocking
-require('../main/preload')
-
 describe('Preload Script', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Import preload after clearing mocks so it gets the fresh mocks
+    require('../main/preload')
   })
 
   it('should expose electronAPI to main world', () => {
@@ -178,7 +177,7 @@ describe('Preload Script', () => {
       
       // Test the callback is triggered correctly
       const [[, listener]] = mockIpcRenderer.on.mock.calls
-      listener(null, 'test-note-id')
+      listener({} as any, 'test-note-id')
       
       expect(mockCallback).toHaveBeenCalledWith('test-note-id')
     })

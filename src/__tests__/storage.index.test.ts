@@ -12,7 +12,7 @@ jest.mock('fs', () => ({
   }
 }))
 jest.mock('date-fns', () => ({
-  format: jest.fn((date, formatStr) => {
+  format: jest.fn((_date, formatStr) => {
     if (formatStr === 'yyyy-MM-dd') return '2024-08-25'
     if (formatStr === 'HHmm') return '1430'
     return '2024-08-25T14:30:00Z'

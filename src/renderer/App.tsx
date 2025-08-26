@@ -159,7 +159,6 @@ const App: React.FC = () => {
   const handleContentChange = useCallback((value: string | undefined) => {
     const newContent = value || ''
     setContent(newContent)
-    console.log('Content changed:', newContent.length, 'characters')
     
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -170,22 +169,16 @@ const App: React.FC = () => {
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         const noteId = currentNoteIdRef.current
-        console.log('Auto-save triggered. Current note ID:', noteId)
         if (noteId) {
           // Update existing note
-          console.log('Updating existing note:', noteId)
           await (window as any).electronAPI?.updateExistingNote(noteId, newContent)
         } else {
           // Create new note and track its ID
-          console.log('Creating new note')
           const result = await (window as any).electronAPI?.saveNote(newContent)
-          console.log('Save result:', result)
           if (result?.id) {
             setCurrentNoteId(result.id)
-            console.log('Set current note ID to:', result.id)
           }
         }
-        console.log('Note saved')
       } catch (error) {
         console.error('Failed to save note:', error)
       }

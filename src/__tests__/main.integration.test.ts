@@ -56,18 +56,18 @@ describe('Main Process Integration', () => {
         mkdir: jest.fn().mockResolvedValue(undefined),
         writeFile: jest.fn().mockResolvedValue(undefined),
         readFile: jest.fn().mockResolvedValue(`---
-date: '2024-08-25'
+date: '2024-08-26'
 group: TestGroup
 audience:
   - TestUser
-created_at: '2024-08-25T14:30:00Z'
-updated_at: '2024-08-25T14:30:00Z'
+created_at: '2024-08-26T14:30:00Z'
+updated_at: '2024-08-26T14:30:00Z'
 ---
 
 [] Task 1
 [x] Completed task
 Subject1 -> Subject2`),
-        readdir: jest.fn().mockResolvedValue(['2024-08-25_1430.md'])
+        readdir: jest.fn().mockResolvedValue(['2024-08-26_1430.md'])
       }
 
       // Test note saving
@@ -94,11 +94,11 @@ Subject1 -> Subject2`),
           id: 'note1.md',
           filename: 'note1.md',
           metadata: {
-            date: '2024-08-25',
+            date: '2024-08-26',
             group: 'ProjectA',
             audience: ['Team1'],
-            created_at: '2024-08-25T10:00:00Z',
-            updated_at: '2024-08-25T10:00:00Z'
+            created_at: '2024-08-26T10:00:00Z',
+            updated_at: '2024-08-26T10:00:00Z'
           },
           content: 'Meeting notes for ProjectA with Team1'
         },
@@ -106,11 +106,11 @@ Subject1 -> Subject2`),
           id: 'note2.md',
           filename: 'note2.md', 
           metadata: {
-            date: '2024-08-25',
+            date: '2024-08-26',
             group: 'ProjectB',
             audience: ['Team2'],
-            created_at: '2024-08-25T11:00:00Z',
-            updated_at: '2024-08-25T11:00:00Z'
+            created_at: '2024-08-26T11:00:00Z',
+            updated_at: '2024-08-26T11:00:00Z'
           },
           content: 'Different meeting about ProjectB'
         }
@@ -135,11 +135,11 @@ Subject1 -> Subject2`),
           id: 'note1.md',
           filename: 'note1.md',
           metadata: {
-            date: '2024-08-25',
+            date: '2024-08-26',
             group: 'ProjectA',
             audience: ['Alice', 'Bob'],
-            created_at: '2024-08-25T10:00:00Z',
-            updated_at: '2024-08-25T10:00:00Z'
+            created_at: '2024-08-26T10:00:00Z',
+            updated_at: '2024-08-26T10:00:00Z'
           },
           content: 'Content 1'
         },
@@ -147,11 +147,11 @@ Subject1 -> Subject2`),
           id: 'note2.md',
           filename: 'note2.md',
           metadata: {
-            date: '2024-08-25',
+            date: '2024-08-26',
             group: 'ProjectB',
             audience: ['Bob', 'Charlie'],
-            created_at: '2024-08-25T11:00:00Z',
-            updated_at: '2024-08-25T11:00:00Z'
+            created_at: '2024-08-26T11:00:00Z',
+            updated_at: '2024-08-26T11:00:00Z'
           },
           content: 'Content 2'
         }
@@ -169,16 +169,16 @@ Subject1 -> Subject2`),
 
   describe('Date-based Note Filtering Integration', () => {
     it('should filter notes by date periods correctly', async () => {
-      const today = new Date('2024-08-25T15:00:00Z')
-      const yesterday = new Date('2024-08-24T15:00:00Z')
-      const lastWeek = new Date('2024-08-18T15:00:00Z')
+      const today = new Date('2024-08-26T15:00:00Z')
+      const yesterday = new Date('2024-08-25T15:00:00Z')
+      const lastWeek = new Date('2024-08-19T15:00:00Z')
 
       const mockNotes = [
         {
           id: 'today.md',
           filename: 'today.md',
           metadata: {
-            date: '2024-08-25',
+            date: '2024-08-26',
             created_at: today.toISOString(),
             updated_at: today.toISOString()
           },
@@ -188,7 +188,7 @@ Subject1 -> Subject2`),
           id: 'yesterday.md', 
           filename: 'yesterday.md',
           metadata: {
-            date: '2024-08-24',
+            date: '2024-08-25',
             created_at: yesterday.toISOString(),
             updated_at: yesterday.toISOString()
           },
@@ -198,7 +198,7 @@ Subject1 -> Subject2`),
           id: 'lastweek.md',
           filename: 'lastweek.md', 
           metadata: {
-            date: '2024-08-18',
+            date: '2024-08-19',
             created_at: lastWeek.toISOString(),
             updated_at: lastWeek.toISOString()
           },
@@ -208,7 +208,7 @@ Subject1 -> Subject2`),
 
       jest.spyOn(fileStorage, 'loadNotes').mockResolvedValue(mockNotes as any)
 
-      // Mock current date to 2024-08-25
+      // Mock current date to 2024-08-26
       const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => today as any)
 
       const todayNotes = await fileStorage.getNotesForToday()

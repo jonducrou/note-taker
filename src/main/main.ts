@@ -148,7 +148,6 @@ async function createTray() {
     
     // Left click: show/hide window  
     tray.on('click', () => {
-      console.log('Tray click detected')
       if (mainWindow) {
         if (mainWindow.isVisible()) {
           mainWindow.hide()
@@ -163,7 +162,6 @@ async function createTray() {
     
     // Right click: show context menu
     tray.on('right-click', async () => {
-      console.log('Tray right-click detected')
       const menuItems = cachedMenuItems || await buildPermanentTrayMenu()
       const contextMenu = Menu.buildFromTemplate(menuItems as any) // eslint-disable-line @typescript-eslint/no-explicit-any
       tray?.popUpContextMenu(contextMenu)
@@ -345,7 +343,6 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
 
 // Function to refresh the cached menu
 async function refreshTrayMenu(): Promise<void> {
-  console.log('Refreshing tray menu...')
   cachedMenuItems = null // Clear cache
   await buildPermanentTrayMenu() // Rebuild cache
 }
@@ -483,41 +480,56 @@ ipcMain.handle('get-menu-structure', async () => {
         return []
       }
       
-      const audienceItems = audienceEntries.map(([audience, notes]) => {
-        const totalIncomplete = notes.reduce((sum, note) => {
-          return sum + fileStorage.countIncompleteItems(note.content)
-        }, 0)
-        
-        const displayLabel = totalIncomplete > 0 ? `${audience} (${totalIncomplete})` : audience
-        
-        // Build submenu items for this audience
-        const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
-        const submenuItems: any[] = []
-        
-        Object.entries(grouped).forEach(([key, notesList]) => {
-          const subIncomplete = notesList.reduce((sum, note) => {
+      const audienceItems = audienceEntries
+        .map(([audience, notes]) => {
+          const totalIncomplete = notes.reduce((sum, note) => {
             return sum + fileStorage.countIncompleteItems(note.content)
           }, 0)
           
-          const subDisplayLabel = subIncomplete > 0 ? `${key} (${subIncomplete})` : key
+          // Only include audiences that have incomplete items
+          if (totalIncomplete === 0) {
+            return null
+          }
           
-          submenuItems.push({
-            label: subDisplayLabel,
-            noteId: notesList[0].id,
-            incompleteCount: subIncomplete
+          const displayLabel = `${audience} (${totalIncomplete})`
+          
+          // Build submenu items for this audience
+          const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
+          const submenuItems: any[] = []
+          
+          Object.entries(grouped).forEach(([key, notesList]) => {
+            const subIncomplete = notesList.reduce((sum, note) => {
+              return sum + fileStorage.countIncompleteItems(note.content)
+            }, 0)
+            
+            // Only include submenu items that have incomplete items
+            if (subIncomplete > 0) {
+              const subDisplayLabel = `${key} (${subIncomplete})`
+              
+              submenuItems.push({
+                label: subDisplayLabel,
+                noteId: notesList[0].id,
+                incompleteCount: subIncomplete
+              })
+            }
           })
+          
+          // Only return if there are actual submenu items with incomplete actions
+          if (submenuItems.length === 0) {
+            return null
+          }
+          
+          return {
+            label: displayLabel,
+            submenu: submenuItems
+          }
         })
-        
-        return {
-          label: displayLabel,
-          submenu: submenuItems.length > 0 ? submenuItems : [{ label: 'No notes', enabled: false }]
-        }
-      })
+        .filter(item => item !== null) // Remove null entries (audiences with no incomplete items)
       
-      return [{
+      return audienceItems.length > 0 ? [{
         label: 'With...',
         submenu: audienceItems
-      }]
+      }] : []
     }
 
     const menuStructure = [

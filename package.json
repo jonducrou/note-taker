@@ -1,6 +1,6 @@
 {
   "name": "note-taker",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Minimalist always-on-top note taking app",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -13,10 +13,10 @@
     "dist": "electron-builder",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "jest FileStorage.test.ts basic.test.ts",
+    "test": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts",
     "test:all": "jest",
     "test:watch": "jest --watch FileStorage.test.ts basic.test.ts",
-    "test:coverage": "jest FileStorage.test.ts basic.test.ts --coverage"
+    "test:coverage": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts --coverage"
   },
   "keywords": [
     "notes",

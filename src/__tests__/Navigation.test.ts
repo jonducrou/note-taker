@@ -58,9 +58,9 @@ describe('FileStorage Navigation', () => {
       expect(nextId).toBe('2024-08-26_1300')
     })
 
-    it('should wrap to first note when at last note', async () => {
+    it('should return null when at last note (no wrapping)', async () => {
       const nextId = await fileStorage.getNextNoteId('2024-08-26_1300')
-      expect(nextId).toBe('2024-08-26_1500')
+      expect(nextId).toBeNull()
     })
 
     it('should return null when current note not found', async () => {
@@ -97,9 +97,9 @@ describe('FileStorage Navigation', () => {
       expect(prevId).toBe('2024-08-26_1500')
     })
 
-    it('should wrap to last note when at first note', async () => {
+    it('should return null when at first note (no wrapping)', async () => {
       const prevId = await fileStorage.getPreviousNoteId('2024-08-26_1500')
-      expect(prevId).toBe('2024-08-26_1300')
+      expect(prevId).toBeNull()
     })
 
     it('should return null when current note not found', async () => {
@@ -165,7 +165,7 @@ describe('FileStorage Navigation', () => {
   })
 
   describe('Integration Tests', () => {
-    it('should navigate through all notes in a cycle', async () => {
+    it('should navigate through notes until reaching the end', async () => {
       jest.spyOn(fileStorage, 'loadNotes').mockResolvedValue(mockNotes)
 
       // Start with newest note and navigate forward (next = older)
@@ -177,11 +177,11 @@ describe('FileStorage Navigation', () => {
       currentId = await fileStorage.getNextNoteId(currentId) as string
       expect(currentId).toBe('2024-08-26_1300')
       
-      currentId = await fileStorage.getNextNoteId(currentId) as string
-      expect(currentId).toBe('2024-08-26_1500') // Wrapped back to start
+      const lastAttempt = await fileStorage.getNextNoteId(currentId)
+      expect(lastAttempt).toBeNull() // Stops at last note, no wrapping
     })
 
-    it('should navigate backwards through all notes in a cycle', async () => {
+    it('should navigate backwards through notes until reaching the beginning', async () => {
       jest.spyOn(fileStorage, 'loadNotes').mockResolvedValue(mockNotes)
 
       // Start with oldest note and navigate backward (prev = newer)
@@ -193,8 +193,8 @@ describe('FileStorage Navigation', () => {
       currentId = await fileStorage.getPreviousNoteId(currentId) as string
       expect(currentId).toBe('2024-08-26_1500')
       
-      currentId = await fileStorage.getPreviousNoteId(currentId) as string
-      expect(currentId).toBe('2024-08-26_1300') // Wrapped back to start
+      const lastAttempt = await fileStorage.getPreviousNoteId(currentId)
+      expect(lastAttempt).toBeNull() // Stops at first note, no wrapping
     })
   })
 })

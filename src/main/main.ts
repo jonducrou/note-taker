@@ -89,9 +89,6 @@ function createWindow() {
       }
     })
 
-    // Temporarily open dev tools for testing navigation
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
-
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       console.error('Failed to load content:', errorCode, errorDescription)
     })

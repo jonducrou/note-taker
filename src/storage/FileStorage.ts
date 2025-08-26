@@ -491,7 +491,7 @@ export class FileStorage {
 
   /**
    * Get the ID of the next note (older note in chronological order)
-   * Navigation wraps around from last to first note
+   * Navigation stops at the last note instead of wrapping
    * @param currentNoteId - The ID of the current note
    * @returns The ID of the next note, or null if no next note or error
    */
@@ -512,8 +512,13 @@ export class FileStorage {
         return null
       }
       
-      // Get next note (wrap around to first if at end)
-      const nextIndex = currentIndex === notes.length - 1 ? 0 : currentIndex + 1
+      // Return null if already at the last note (no wrapping)
+      if (currentIndex === notes.length - 1) {
+        return null
+      }
+      
+      // Get next note
+      const nextIndex = currentIndex + 1
       return notes[nextIndex].id
       
     } catch (error) {
@@ -524,7 +529,7 @@ export class FileStorage {
 
   /**
    * Get the ID of the previous note (newer note in chronological order)  
-   * Navigation wraps around from first to last note
+   * Navigation stops at the first note instead of wrapping
    * @param currentNoteId - The ID of the current note
    * @returns The ID of the previous note, or null if no previous note or error
    */
@@ -545,8 +550,13 @@ export class FileStorage {
         return null
       }
       
-      // Get previous note (wrap around to last if at beginning)
-      const previousIndex = currentIndex === 0 ? notes.length - 1 : currentIndex - 1
+      // Return null if already at the first note (no wrapping)
+      if (currentIndex === 0) {
+        return null
+      }
+      
+      // Get previous note
+      const previousIndex = currentIndex - 1
       return notes[previousIndex].id
       
     } catch (error) {

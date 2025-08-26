@@ -30,6 +30,25 @@ export class FileStorage {
     return join(this.notesDir, `${id}.md`)
   }
 
+  private extractDateFromFilename(id: string): Date {
+    try {
+      // Extract date and time from filename: YYYY-MM-DD_Group_HHMM or YYYY-MM-DD_HHMM
+      const parts = id.split('_')
+      const datePart = parts[0] // YYYY-MM-DD
+      const timePart = parts[parts.length - 1] // HHMM (last part)
+      
+      const [year, month, day] = datePart.split('-').map(Number)
+      const hour = parseInt(timePart.substring(0, 2))
+      const minute = parseInt(timePart.substring(2, 4))
+      
+      return new Date(year, month - 1, day, hour, minute)
+    } catch (error) {
+      console.error(`Failed to parse date from filename ${id}:`, error)
+      // Fallback to current date
+      return new Date()
+    }
+  }
+
   parseNoteContent(content: string): { group?: string; audience: string[]; cleanContent: string } {
     const lines = content.split('\n')
     let group: string | undefined
@@ -134,7 +153,12 @@ export class FileStorage {
         }
       }
 
-      return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      // Sort by filename date (newest first) instead of file modification time
+      return notes.sort((a, b) => {
+        const dateA = this.extractDateFromFilename(a.id)
+        const dateB = this.extractDateFromFilename(b.id)
+        return dateB.getTime() - dateA.getTime()
+      })
     } catch (error) {
       console.error('Failed to load notes:', error)
       return []

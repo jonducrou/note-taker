@@ -33,6 +33,27 @@ export class FileStorage {
     return `${year}-${month}-${day}`
   }
 
+  private extractDateFromFilename(filename: string): Date {
+    try {
+      // Remove .md extension and extract date parts
+      const id = filename.replace('.md', '')
+      // Extract date and time from filename: YYYY-MM-DD_Group_HHMM or YYYY-MM-DD_HHMM
+      const parts = id.split('_')
+      const datePart = parts[0] // YYYY-MM-DD
+      const timePart = parts[parts.length - 1] // HHMM (last part)
+      
+      const [year, month, day] = datePart.split('-').map(Number)
+      const hour = parseInt(timePart.substring(0, 2))
+      const minute = parseInt(timePart.substring(2, 4))
+      
+      return new Date(year, month - 1, day, hour, minute)
+    } catch (error) {
+      console.error(`Failed to parse date from filename ${filename}:`, error)
+      // Fallback to current date
+      return new Date()
+    }
+  }
+
   async ensureNotesDirectory(): Promise<void> {
     try {
       await fs.access(this.notesDir)
@@ -187,8 +208,12 @@ export class FileStorage {
         }
       }
       
-      // Sort by updated_at descending (most recent first)
-      notes.sort((a, b) => new Date(b.metadata.updated_at).getTime() - new Date(a.metadata.updated_at).getTime())
+      // Sort by filename date (newest first) instead of file modification time
+      notes.sort((a, b) => {
+        const dateA = this.extractDateFromFilename(a.filename)
+        const dateB = this.extractDateFromFilename(b.filename)
+        return dateB.getTime() - dateA.getTime()
+      })
       
       return notes
     } catch (error) {

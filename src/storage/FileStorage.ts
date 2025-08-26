@@ -25,6 +25,14 @@ export class FileStorage {
     this.notesDir = join(homedir(), 'Documents', 'Notes')
   }
 
+  private getLocalDateString(date: Date = new Date()): string {
+    // Get local date string in YYYY-MM-DD format
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   async ensureNotesDirectory(): Promise<void> {
     try {
       await fs.access(this.notesDir)
@@ -35,19 +43,31 @@ export class FileStorage {
 
   extractMetadata(content: string): { group?: string; audience?: string[] } {
     const groupMatch = content.match(/#([^\s#@]+)/i)
-    const audienceMatch = content.match(/@audience:([^\n@]+)/i)
+    
+    // Match both old format (@audience:name1,name2) and new format (@name)
+    const audienceOldMatch = content.match(/@audience:([^\n@]+)/i)
+    const audienceNewMatches = content.match(/@([a-zA-Z][a-zA-Z0-9_-]*)/g)
     
     const group = groupMatch ? groupMatch[1].trim() : undefined
-    const audience = audienceMatch 
-      ? audienceMatch[1].split(',').map(a => a.trim()).filter(a => a)
-      : undefined
+    
+    let audience: string[] | undefined
+    if (audienceOldMatch) {
+      // Old format: @audience:name1,name2
+      audience = audienceOldMatch[1].split(',').map(a => a.trim()).filter(a => a)
+    } else if (audienceNewMatches) {
+      // New format: @name @name2 (extract just the names without @)
+      // Filter out the word "audience" itself
+      audience = audienceNewMatches
+        .map(match => match.slice(1))
+        .filter(a => a && a.toLowerCase() !== 'audience')
+    }
 
     return { group, audience }
   }
 
   generateFilename(): string {
     const now = new Date()
-    const date = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const date = this.getLocalDateString(now)
     const time = now.toTimeString().slice(0, 8).replace(/:/g, '') // HHMMSS
     return `${date}_${time}.md`
   }
@@ -69,13 +89,14 @@ export class FileStorage {
     
     // Fallback for files without frontmatter
     const extracted = this.extractMetadata(fileContent)
-    const now = new Date().toISOString()
+    const now = new Date()
+    const nowISO = now.toISOString()
     const metadata: NoteMetadata = {
-      date: now.split('T')[0],
+      date: this.getLocalDateString(now),
       group: extracted.group,
       audience: extracted.audience,
-      created_at: now,
-      updated_at: now
+      created_at: nowISO,
+      updated_at: nowISO
     }
     
     return { metadata, content: fileContent }
@@ -90,14 +111,15 @@ export class FileStorage {
       const finalAudience = audience || extracted.audience
 
       const filename = this.generateFilename()
-      const now = new Date().toISOString()
+      const now = new Date()
+      const nowISO = now.toISOString()
       
       const metadata: NoteMetadata = {
-        date: now.split('T')[0],
+        date: this.getLocalDateString(now),
         group: finalGroup,
         audience: finalAudience,
-        created_at: now,
-        updated_at: now
+        created_at: nowISO,
+        updated_at: nowISO
       }
 
       const formattedContent = this.formatNoteContent(content, metadata)
@@ -218,7 +240,7 @@ export class FileStorage {
   async getRecentGroupSuggestions(prefix?: string): Promise<string[]> {
     const twoWeeksAgo = new Date()
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
-    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
+    const twoWeeksAgoStr = this.getLocalDateString(twoWeeksAgo)
     
     const notes = await this.loadNotes()
     const groups = new Set<string>()
@@ -226,7 +248,7 @@ export class FileStorage {
     notes.forEach(note => {
       const noteDate = typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
       
       if (noteDate >= twoWeeksAgoStr && note.metadata.group) {
         groups.add(note.metadata.group)
@@ -248,7 +270,7 @@ export class FileStorage {
   async getRecentAudienceSuggestions(prefix?: string): Promise<string[]> {
     const twoWeeksAgo = new Date()
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
-    const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0]
+    const twoWeeksAgoStr = this.getLocalDateString(twoWeeksAgo)
     
     const notes = await this.loadNotes()
     const audience = new Set<string>()
@@ -256,10 +278,16 @@ export class FileStorage {
     notes.forEach(note => {
       const noteDate = typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
       
       if (noteDate >= twoWeeksAgoStr && note.metadata.audience) {
-        note.metadata.audience.forEach(a => audience.add(a))
+        note.metadata.audience.forEach(a => {
+          // Remove @ prefix if it exists (for backwards compatibility)
+          const cleanName = a.startsWith('@') ? a.slice(1) : a
+          if (cleanName) {
+            audience.add(cleanName)
+          }
+        })
       }
     })
     
@@ -294,12 +322,12 @@ export class FileStorage {
   }
 
   async getNotesForToday(): Promise<Note[]> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = this.getLocalDateString()
     const notes = await this.loadNotes()
     return notes.filter(note => {
       const noteDate = typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
       return noteDate === today
     })
   }
@@ -309,11 +337,11 @@ export class FileStorage {
     const noteDates = [...new Set(notes.map(note => {
       return typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
     }))]
       .sort((a, b) => b.localeCompare(a)) // Most recent first
     
-    const today = new Date().toISOString().split('T')[0]
+    const today = this.getLocalDateString()
     const yesterdayDate = noteDates.find(date => date < today)
     
     if (!yesterdayDate) return []
@@ -321,7 +349,7 @@ export class FileStorage {
     return notes.filter(note => {
       const noteDate = typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
       return noteDate === yesterdayDate
     })
   }
@@ -329,16 +357,105 @@ export class FileStorage {
   async getNotesForPreviousWeek(): Promise<Note[]> {
     const today = new Date()
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const todayStr = today.toISOString().split('T')[0]
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+    const todayStr = this.getLocalDateString(today)
+    const sevenDaysAgoStr = this.getLocalDateString(sevenDaysAgo)
     
     const notes = await this.loadNotes()
     return notes.filter(note => {
       const noteDate = typeof note.metadata.date === 'string' 
         ? note.metadata.date 
-        : new Date(note.metadata.date).toISOString().split('T')[0]
+        : this.getLocalDateString(new Date(note.metadata.date))
       return noteDate < todayStr && noteDate >= sevenDaysAgoStr
     })
+  }
+
+  async getNotesForPriorWeek(): Promise<Note[]> {
+    const today = new Date()
+    const notes = await this.loadNotes()
+    const noteDates = [...new Set(notes.map(note => {
+      return typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : this.getLocalDateString(new Date(note.metadata.date))
+    }))]
+      .sort((a, b) => b.localeCompare(a)) // Most recent first
+    
+    const todayStr = this.getLocalDateString(today)
+    const yesterdayDate = noteDates.find(date => date < todayStr)
+    
+    if (!yesterdayDate) return []
+    
+    // Get 7 days prior to yesterday
+    const yesterdayDateObj = new Date(yesterdayDate + 'T00:00:00')
+    const priorWeekStart = new Date(yesterdayDateObj.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const priorWeekEnd = new Date(yesterdayDateObj.getTime() - 1 * 24 * 60 * 60 * 1000) // Day before yesterday
+    
+    const priorWeekStartStr = this.getLocalDateString(priorWeekStart)
+    const priorWeekEndStr = this.getLocalDateString(priorWeekEnd)
+    
+    return notes.filter(note => {
+      const noteDate = typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : this.getLocalDateString(new Date(note.metadata.date))
+      return noteDate >= priorWeekStartStr && noteDate <= priorWeekEndStr
+    })
+  }
+
+  async getOpenNotesFromLastMonth(): Promise<Note[]> {
+    const today = new Date()
+    const oneMonthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const todayStr = this.getLocalDateString(today)
+    const oneMonthAgoStr = this.getLocalDateString(oneMonthAgo)
+    
+    const notes = await this.loadNotes()
+    return notes.filter(note => {
+      const noteDate = typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : this.getLocalDateString(new Date(note.metadata.date))
+      
+      // Check if note is within the last month
+      if (noteDate < oneMonthAgoStr || noteDate > todayStr) {
+        return false
+      }
+      
+      // Check if note has incomplete items ([] or -> or <-)
+      const incompleteCount = this.countIncompleteItems(note.content)
+      return incompleteCount > 0
+    })
+  }
+
+  async getNotesGroupedByAudienceFromLastMonth(): Promise<{ [audience: string]: Note[] }> {
+    const today = new Date()
+    const oneMonthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const todayStr = this.getLocalDateString(today)
+    const oneMonthAgoStr = this.getLocalDateString(oneMonthAgo)
+    
+    const notes = await this.loadNotes()
+    const recentNotes = notes.filter(note => {
+      const noteDate = typeof note.metadata.date === 'string' 
+        ? note.metadata.date 
+        : this.getLocalDateString(new Date(note.metadata.date))
+      
+      return noteDate >= oneMonthAgoStr && noteDate <= todayStr
+    })
+    
+    const grouped: { [audience: string]: Note[] } = {}
+    
+    recentNotes.forEach(note => {
+      if (note.metadata.audience && note.metadata.audience.length > 0) {
+        note.metadata.audience.forEach(person => {
+          // Clean up audience name (remove @ if present)
+          const cleanPerson = person.startsWith('@') ? person.slice(1) : person
+          if (cleanPerson) {
+            if (!grouped[cleanPerson]) {
+              grouped[cleanPerson] = []
+            }
+            grouped[cleanPerson].push(note)
+          }
+        })
+      }
+    })
+    
+    return grouped
   }
 
   groupNotesByGroupAndAudience(notes: Note[]): { [key: string]: Note[] } {

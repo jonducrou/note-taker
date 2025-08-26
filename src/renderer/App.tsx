@@ -17,8 +17,6 @@ const App: React.FC = () => {
   }, [currentNoteId])
   
   const setupMonacoLanguage = useCallback((monaco: Monaco) => {
-    console.log('Setting up Monaco language')
-    
     // Register a new language for our note format
     monaco.languages.register({ id: 'notes' })
 
@@ -85,7 +83,7 @@ const App: React.FC = () => {
             // Add some fallback suggestions if no recent ones exist
             let allGroups = groups || []
             if (allGroups.length === 0) {
-              allGroups = ['work', 'personal', 'meeting', 'project'].filter(g => 
+              allGroups = ['eng', 'product', 'prodtech', 'external'].filter(g => 
                 g.toLowerCase().startsWith(prefix.toLowerCase())
               )
             }
@@ -283,11 +281,9 @@ const App: React.FC = () => {
           theme="notes-theme"
           loading="Loading editor..."
           beforeMount={(monaco) => {
-            console.log('Monaco beforeMount called')
             setupMonacoLanguage(monaco)
           }}
           onMount={(editor, monaco) => {
-            console.log('Monaco onMount called')
             monaco.editor.setTheme('notes-theme')
             
             // Add double-click handler for completion toggling
@@ -449,6 +445,7 @@ const App: React.FC = () => {
                 // Check if first non-whitespace character is "-"
                 if (trimmedLine.startsWith('-')) {
                   e.preventDefault()
+                  e.stopPropagation()
                   
                   if (e.shiftKey) {
                     // Shift+Tab: Decrease indentation (remove 2 spaces if they exist)
@@ -490,6 +487,10 @@ const App: React.FC = () => {
                       column: position.column + 2
                     })
                   }
+                } else {
+                  // For non-bullet lines, still prevent default tab behavior
+                  e.preventDefault()
+                  e.stopPropagation()
                 }
               }
             })
@@ -499,7 +500,7 @@ const App: React.FC = () => {
             lineNumbers: 'off',
             scrollBeyondLastLine: false,
             wordWrap: 'on',
-            fontSize: 14,
+            fontSize: 12,
             fontFamily: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
             padding: { top: 20, bottom: 20 },
             automaticLayout: true,

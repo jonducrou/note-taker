@@ -9,6 +9,7 @@ const appVersion = app.getVersion()
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const fileStorage = new FileStorage()
+let isQuitting = false
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -19,14 +20,32 @@ function getTrayIconPath(): string | null {
   let trayIconPath: string
   
   if (isRunningFromProject) {
-    // Try the SVG-converted 32x32 PNG first, fallback to original PNG
+    // Try the padded icons first
+    trayIconPath = join(process.cwd(), 'assets/tray-icon-padded-32.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    trayIconPath = join(process.cwd(), 'assets/tray-icon-padded-16.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    // Fallback to original icons
     trayIconPath = join(process.cwd(), 'assets/tray-icon-32.png')
     if (fs.existsSync(trayIconPath)) {
       return trayIconPath
     }
     trayIconPath = join(process.cwd(), 'assets/tray-icon.png')
   } else {
-    // Running from packaged app - use resources folder
+    // Running from packaged app - use resources folder, try padded first
+    trayIconPath = join(process.resourcesPath, 'assets/tray-icon-padded-32.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    trayIconPath = join(process.resourcesPath, 'assets/tray-icon-padded-16.png')
+    if (fs.existsSync(trayIconPath)) {
+      return trayIconPath
+    }
+    // Fallback to original icons
     trayIconPath = join(process.resourcesPath, 'assets/tray-icon-32.png')
     if (fs.existsSync(trayIconPath)) {
       return trayIconPath
@@ -94,6 +113,13 @@ function createWindow() {
       })
     }
 
+    mainWindow.on('close', (event) => {
+      if (!isQuitting) {
+        event.preventDefault()
+        mainWindow?.hide()
+      }
+    })
+
     mainWindow.on('closed', () => {
       mainWindow = null
     })
@@ -154,8 +180,10 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
   try {
     const todayNotes = await fileStorage.getNotesForToday()
     const yesterdayNotes = await fileStorage.getNotesForYesterday()
+    const priorWeekNotes = await fileStorage.getNotesForPriorWeek()
+    const openNotes = await fileStorage.getOpenNotesFromLastMonth()
+    const audienceGroupedNotes = await fileStorage.getNotesGroupedByAudienceFromLastMonth()
     
-    console.log('Building menu - Today:', todayNotes.length, 'Yesterday:', yesterdayNotes.length)
     
     const buildSubmenuItems = (notes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       if (notes.length === 0) {
@@ -190,6 +218,31 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
       return items
     }
 
+    // Build "With..." submenu from audience grouped notes
+    const buildAudienceSubmenu = () => {
+      const audienceEntries = Object.entries(audienceGroupedNotes).sort(([a], [b]) => a.localeCompare(b))
+      
+      if (audienceEntries.length === 0) {
+        return [{ label: 'No audience notes', enabled: false }]
+      }
+      
+      return audienceEntries.map(([audience, notes]) => {
+        const totalIncomplete = notes.reduce((sum, note) => {
+          return sum + fileStorage.countIncompleteItems(note.content)
+        }, 0)
+        
+        const displayLabel = totalIncomplete > 0 ? `${audience} (${totalIncomplete})` : audience
+        
+        // Create submenu for this audience's notes, grouped by group and audience
+        const audienceSubmenu = buildSubmenuItems(notes)
+        
+        return {
+          label: displayLabel,
+          submenu: audienceSubmenu
+        }
+      })
+    }
+
     const menuItems = [
       {
         label: 'Show Notes',
@@ -204,12 +257,26 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
       },
       { type: 'separator' },
       {
+        label: 'Open Notes',
+        submenu: buildSubmenuItems(openNotes)
+      },
+      { type: 'separator' },
+      {
         label: 'Today',
         submenu: buildSubmenuItems(todayNotes)
       },
       {
         label: 'Yesterday', 
         submenu: buildSubmenuItems(yesterdayNotes)
+      },
+      {
+        label: 'Prior Week',
+        submenu: buildSubmenuItems(priorWeekNotes)
+      },
+      { type: 'separator' },
+      {
+        label: 'With...',
+        submenu: buildAudienceSubmenu()
       },
       { type: 'separator' },
       {
@@ -244,12 +311,26 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
       },
       { type: 'separator' },
       {
+        label: 'Open Notes',
+        submenu: [{ label: 'No open items', enabled: false }]
+      },
+      { type: 'separator' },
+      {
         label: 'Today',
         submenu: [{ label: 'No notes', enabled: false }]
       },
       {
         label: 'Yesterday',
         submenu: [{ label: 'No notes', enabled: false }]
+      },
+      {
+        label: 'Prior Week',
+        submenu: [{ label: 'No notes', enabled: false }]
+      },
+      { type: 'separator' },
+      {
+        label: 'With...',
+        submenu: [{ label: 'No audience notes', enabled: false }]
       },
       { type: 'separator' },
       {
@@ -366,6 +447,9 @@ ipcMain.handle('get-menu-structure', async () => {
     const todayNotes = await fileStorage.getNotesForToday()
     const yesterdayNotes = await fileStorage.getNotesForYesterday()
     const previousWeekNotes = await fileStorage.getNotesForPreviousWeek()
+    const priorWeekNotes = await fileStorage.getNotesForPriorWeek()
+    const openNotes = await fileStorage.getOpenNotesFromLastMonth()
+    const audienceGroupedNotes = await fileStorage.getNotesGroupedByAudienceFromLastMonth()
 
     const buildMenuItems = (notes: any[], label: string) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
@@ -391,10 +475,58 @@ ipcMain.handle('get-menu-structure', async () => {
       }] : []
     }
 
+    // Build audience menu structure
+    const buildAudienceMenuItems = () => {
+      const audienceEntries = Object.entries(audienceGroupedNotes).sort(([a], [b]) => a.localeCompare(b))
+      
+      if (audienceEntries.length === 0) {
+        return []
+      }
+      
+      const audienceItems = audienceEntries.map(([audience, notes]) => {
+        const totalIncomplete = notes.reduce((sum, note) => {
+          return sum + fileStorage.countIncompleteItems(note.content)
+        }, 0)
+        
+        const displayLabel = totalIncomplete > 0 ? `${audience} (${totalIncomplete})` : audience
+        
+        // Build submenu items for this audience
+        const grouped = fileStorage.groupNotesByGroupAndAudience(notes)
+        const submenuItems: any[] = []
+        
+        Object.entries(grouped).forEach(([key, notesList]) => {
+          const subIncomplete = notesList.reduce((sum, note) => {
+            return sum + fileStorage.countIncompleteItems(note.content)
+          }, 0)
+          
+          const subDisplayLabel = subIncomplete > 0 ? `${key} (${subIncomplete})` : key
+          
+          submenuItems.push({
+            label: subDisplayLabel,
+            noteId: notesList[0].id,
+            incompleteCount: subIncomplete
+          })
+        })
+        
+        return {
+          label: displayLabel,
+          submenu: submenuItems.length > 0 ? submenuItems : [{ label: 'No notes', enabled: false }]
+        }
+      })
+      
+      return [{
+        label: 'With...',
+        submenu: audienceItems
+      }]
+    }
+
     const menuStructure = [
+      ...buildMenuItems(openNotes, 'Open Notes'),
       ...buildMenuItems(todayNotes, 'Today'),
       ...buildMenuItems(yesterdayNotes, 'Yesterday'), 
-      ...buildMenuItems(previousWeekNotes, 'Previous Week')
+      ...buildMenuItems(previousWeekNotes, 'Previous Week'),
+      ...buildMenuItems(priorWeekNotes, 'Prior Week'),
+      ...buildAudienceMenuItems()
     ]
 
     return { menuStructure }
@@ -439,11 +571,15 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('window-all-closed', (_event: Event) => {
-  _event.preventDefault()
+app.on('window-all-closed', () => {
+  // Don't quit on macOS when windows are closed, but allow explicit quit
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
 })
 
 app.on('before-quit', () => {
+  isQuitting = true
   if (tray) {
     tray.destroy()
   }

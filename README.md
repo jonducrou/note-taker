@@ -66,7 +66,7 @@ updated_at: '2025-08-26T10:30:00Z'
 
 ## Connections
 Sarah -> Security team for compliance discussion  
-DevTeam <x- Product requirements delivered
+DevTeam </- Product requirements delivered
 
 ## Key Points
 - Discussed new feature requirements

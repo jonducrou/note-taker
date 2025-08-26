@@ -70,6 +70,10 @@ const electronAPI = {
     return ipcRenderer.invoke('get-next-note-id', currentNoteId)
   },
   
+  setWindowTitle: (title: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-window-title', title)
+  },
+  
   // Listen for note loading messages from menu
   onLoadNote: (callback: (noteId: string) => void) => {
     ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))

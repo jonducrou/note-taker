@@ -603,6 +603,18 @@ ipcMain.handle('get-next-note-id', async (_event, currentNoteId: string) => {
   }
 })
 
+ipcMain.handle('set-window-title', async (_event, title: string) => {
+  try {
+    if (mainWindow) {
+      mainWindow.setTitle(title)
+    }
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to set window title:', error)
+    return { success: false }
+  }
+})
+
 app.whenReady().then(async () => {
   createMenu()
   await createTray()

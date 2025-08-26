@@ -11,9 +11,51 @@ const App: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
   
-  // Keep ref in sync with state
+  const formatNoteDate = (noteId: string): string => {
+    try {
+      // Extract date and time from note ID format: YYYY-MM-DD_HHMMSS or YYYY-MM-DD_group_HHMMSS
+      const parts = noteId.split('_')
+      const datePart = parts[0] // YYYY-MM-DD
+      const timePart = parts[parts.length - 1] // HHMMSS (last part)
+      
+      // Parse the date
+      const [year, month, day] = datePart.split('-').map(Number)
+      const hour = parseInt(timePart.substring(0, 2))
+      const minute = parseInt(timePart.substring(2, 4))
+      
+      const date = new Date(year, month - 1, day, hour, minute)
+      
+      // Format as "Tue 26 Aug 14:31"
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      
+      const dayName = dayNames[date.getDay()]
+      const dayNum = date.getDate()
+      const monthName = monthNames[date.getMonth()]
+      const formattedHour = hour.toString().padStart(2, '0')
+      const formattedMinute = minute.toString().padStart(2, '0')
+      
+      return `${dayName} ${dayNum} ${monthName} ${formattedHour}:${formattedMinute}`
+    } catch (error) {
+      console.error('Failed to format note date:', error)
+      return 'Note Taker'
+    }
+  }
+  
+  const updateWindowTitle = async (noteId: string | null) => {
+    try {
+      const title = noteId ? formatNoteDate(noteId) : 'Note Taker'
+      await (window as any).electronAPI?.setWindowTitle(title)
+    } catch (error) {
+      console.error('Failed to update window title:', error)
+    }
+  }
+  
+  // Keep ref in sync with state and update window title
   useEffect(() => {
     currentNoteIdRef.current = currentNoteId
+    updateWindowTitle(currentNoteId)
   }, [currentNoteId])
   
   const setupMonacoLanguage = useCallback((monaco: Monaco) => {
@@ -246,7 +288,7 @@ const App: React.FC = () => {
     <div className="app">
       <div className="header">
         <div className="header-left">
-          <span>Note Taker</span>
+          <span>{currentNoteId ? formatNoteDate(currentNoteId) : 'Note Taker'}</span>
         </div>
         <div className="header-right">
           <button 

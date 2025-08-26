@@ -2,7 +2,7 @@
 
 A minimalist, text-driven note-taking application for Mac that stays always-on-top and focuses on quick note capture with actionable items and connections.
 
-> **Current Status**: Full-featured v1.4 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, and intelligent audience filtering.
+> **Current Status**: Full-featured v1.5 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, intelligent audience filtering, **keyboard navigation**, and **dynamic note timestamps**.
 
 ## Features
 
@@ -27,6 +27,8 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **Smart autocomplete**: Recent suggestions for `#groups` and `@audience` from last 2 weeks
 - **Auto-save**: Automatically saves and updates existing notes after 1 second
 - **Tab indentation**: Tab/Shift-Tab for bullet point indentation
+- **Keyboard navigation**: `Cmd+Up` (newer notes) and `Cmd+Down` (older notes) to navigate between notes
+- **Dynamic window title**: Shows note creation date/time in format "Tue 26 Aug 14:31"
 
 ### 📊 **Smart Organization**
 - **Open Notes**: Shows notes with incomplete items from last month

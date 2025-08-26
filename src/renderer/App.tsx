@@ -28,16 +28,17 @@ const App: React.FC = () => {
           [/.*\[\s*\].*$/, 'action.incomplete.line'],
           [/.*\[x\].*$/, 'action.complete.line'],
           
-          // Connection lines - highlight entire line with -> or completed connections
-          [/.*\w+\s*-[/\\]>\s*\w+.*$/, 'connection.complete.line'],
-          [/.*\w+\s*<[/\\]-\s*\w+.*$/, 'connection.complete.line'],
-          [/.*\w+\s*->\s*\w+.*$/, 'connection.incomplete.line'],
-          [/.*\w+\s*<-\s*\w+.*$/, 'connection.incomplete.line'],
+          // Connection lines - more flexible patterns that allow special chars, quotes, and audience tags
+          // Match lines containing -> or <- patterns (more flexible - allows any characters before/after arrows)
+          [/.*-[/\\]>.*$/, 'connection.complete.line'],
+          [/.*<[/\\]-.*$/, 'connection.complete.line'],  
+          [/.*->.*$/, 'connection.incomplete.line'],
+          [/.*<-.*$/, 'connection.incomplete.line'],
           
-          // Group tags - highlight just the tag
+          // Group tags - highlight just the tag (these will override line colors)
           [/#[a-zA-Z][a-zA-Z0-9_-]*/, 'tag.group'],
           
-          // Audience tags - highlight just the tag  
+          // Audience tags - highlight just the tag (these will override line colors)
           [/@[a-zA-Z][a-zA-Z0-9_-]*/, 'tag.audience'],
         ]
       }
@@ -330,14 +331,14 @@ const App: React.FC = () => {
                 }
               }
 
-              // Check if double-click is on a connection
+              // Check if double-click is on a connection arrow symbol
               const connectionMatches = [
-                // New forward slash syntax
-                ...line.matchAll(/\w+\s*-[/\\]>\s*\w+/g),
-                ...line.matchAll(/\w+\s*<[/\\]-\s*\w+/g),
-                // Incomplete connections
-                ...line.matchAll(/\w+\s*->\s*\w+/g),
-                ...line.matchAll(/\w+\s*<-\s*\w+/g)
+                // Complete connections (forward slash syntax)
+                ...line.matchAll(/-[/\\]>/g),
+                ...line.matchAll(/<[/\\]-/g),
+                // Incomplete connections  
+                ...line.matchAll(/->/g),
+                ...line.matchAll(/<-/g)
               ]
               
               for (const match of connectionMatches) {
@@ -347,29 +348,22 @@ const App: React.FC = () => {
                 if (clickColumn >= startCol && clickColumn <= endCol) {
                   let newLine = line
                   
-                  // Handle incomplete -> to complete -/>
-                  if (match[0].includes('->') && !match[0].includes('-/>') && !match[0].includes('-\\>')) {
-                    newLine = line.replace(match[0], match[0].replace('->', '-/>'))
+                  // Handle different arrow types by replacing the exact match
+                  if (match[0] === '->') {
+                    // Incomplete forward arrow -> complete forward arrow
+                    newLine = line.replace(match[0], '-/>')
                   }
-                  // Handle incomplete <- to complete </-
-                  else if (match[0].includes('<-') && !match[0].includes('</-') && !match[0].includes('<\\-')) {
-                    newLine = line.replace(match[0], match[0].replace('<-', '</-'))
+                  else if (match[0] === '<-') {
+                    // Incomplete backward arrow -> complete backward arrow  
+                    newLine = line.replace(match[0], '</-')
                   }
-                  // Handle complete -/> back to incomplete ->
-                  else if (match[0].includes('-/>')) {
-                    newLine = line.replace(match[0], match[0].replace('-/>', '->'))
+                  else if (match[0] === '-/>' || match[0] === '-\\>') {
+                    // Complete forward arrow -> incomplete forward arrow
+                    newLine = line.replace(match[0], '->')
                   }
-                  // Handle complete -\> back to incomplete ->
-                  else if (match[0].includes('-\\>')) {
-                    newLine = line.replace(match[0], match[0].replace('-\\>', '->'))
-                  }
-                  // Handle complete </- back to incomplete <-
-                  else if (match[0].includes('</-')) {
-                    newLine = line.replace(match[0], match[0].replace('</-', '<-'))
-                  }
-                  // Handle complete <\- back to incomplete <-
-                  else if (match[0].includes('<\\-')) {
-                    newLine = line.replace(match[0], match[0].replace('<\\-', '<-'))
+                  else if (match[0] === '</-' || match[0] === '<\\-') {
+                    // Complete backward arrow -> incomplete backward arrow
+                    newLine = line.replace(match[0], '<-')
                   }
                   
                   const range = {

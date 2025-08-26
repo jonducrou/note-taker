@@ -280,6 +280,51 @@ const App: React.FC = () => {
           onMount={(editor, monaco) => {
             monaco.editor.setTheme('notes-theme')
             
+            // Add navigation commands
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow, async () => {
+              console.log('Cmd+Down pressed - navigating to previous note')
+              try {
+                if (!currentNoteIdRef.current) {
+                  console.log('No current note ID available')
+                  return
+                }
+                
+                const previousId = await (window as any).electronAPI?.getPreviousNoteId(currentNoteIdRef.current)
+                console.log('Previous note ID:', previousId)
+                
+                if (previousId) {
+                  await loadNoteById(previousId)
+                  console.log('Successfully loaded previous note:', previousId)
+                } else {
+                  console.log('No previous note available')
+                }
+              } catch (error) {
+                console.error('Failed to navigate to previous note:', error)
+              }
+            })
+
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, async () => {
+              console.log('Cmd+Up pressed - navigating to next note')
+              try {
+                if (!currentNoteIdRef.current) {
+                  console.log('No current note ID available')
+                  return
+                }
+                
+                const nextId = await (window as any).electronAPI?.getNextNoteId(currentNoteIdRef.current)
+                console.log('Next note ID:', nextId)
+                
+                if (nextId) {
+                  await loadNoteById(nextId)
+                  console.log('Successfully loaded next note:', nextId)
+                } else {
+                  console.log('No next note available')
+                }
+              } catch (error) {
+                console.error('Failed to navigate to next note:', error)
+              }
+            })
+            
             // Add double-click handler for completion toggling
             let lastClickTime = 0
             let lastClickPosition: any = null

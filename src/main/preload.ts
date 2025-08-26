@@ -62,6 +62,14 @@ const electronAPI = {
     return ipcRenderer.invoke('update-existing-note', noteId, content)
   },
   
+  getPreviousNoteId: (currentNoteId: string): Promise<string | null> => {
+    return ipcRenderer.invoke('get-previous-note-id', currentNoteId)
+  },
+  
+  getNextNoteId: (currentNoteId: string): Promise<string | null> => {
+    return ipcRenderer.invoke('get-next-note-id', currentNoteId)
+  },
+  
   // Listen for note loading messages from menu
   onLoadNote: (callback: (noteId: string) => void) => {
     ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))

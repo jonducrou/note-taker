@@ -267,4 +267,70 @@ export class FileStorage {
 
     return Array.from(audience).sort()
   }
+
+  /**
+   * Get the ID of the next note (older note in chronological order)
+   * Navigation wraps around from last to first note
+   * @param currentNoteId - The ID of the current note
+   * @returns The ID of the next note, or null if no next note or error
+   */
+  async getNextNoteId(currentNoteId: string): Promise<string | null> {
+    try {
+      const notes = await this.loadNotes()
+      
+      // Return null if no notes or only one note
+      if (notes.length <= 1) {
+        return null
+      }
+      
+      // Find current note index
+      const currentIndex = notes.findIndex(note => note.id === currentNoteId)
+      
+      // Return null if current note not found
+      if (currentIndex === -1) {
+        return null
+      }
+      
+      // Get next note (wrap around to first if at end)
+      const nextIndex = currentIndex === notes.length - 1 ? 0 : currentIndex + 1
+      return notes[nextIndex].id
+      
+    } catch (error) {
+      console.error('Failed to get next note ID:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get the ID of the previous note (newer note in chronological order)  
+   * Navigation wraps around from first to last note
+   * @param currentNoteId - The ID of the current note
+   * @returns The ID of the previous note, or null if no previous note or error
+   */
+  async getPreviousNoteId(currentNoteId: string): Promise<string | null> {
+    try {
+      const notes = await this.loadNotes()
+      
+      // Return null if no notes or only one note
+      if (notes.length <= 1) {
+        return null
+      }
+      
+      // Find current note index
+      const currentIndex = notes.findIndex(note => note.id === currentNoteId)
+      
+      // Return null if current note not found
+      if (currentIndex === -1) {
+        return null
+      }
+      
+      // Get previous note (wrap around to last if at beginning)
+      const previousIndex = currentIndex === 0 ? notes.length - 1 : currentIndex - 1
+      return notes[previousIndex].id
+      
+    } catch (error) {
+      console.error('Failed to get previous note ID:', error)
+      return null
+    }
+  }
 }

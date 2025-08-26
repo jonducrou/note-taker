@@ -89,6 +89,9 @@ function createWindow() {
       }
     })
 
+    // Temporarily open dev tools for testing navigation
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       console.error('Failed to load content:', errorCode, errorDescription)
     })
@@ -580,6 +583,26 @@ ipcMain.handle('update-existing-note', async (_event, noteId: string, content: s
   } catch (error) {
     console.error('Failed to update existing note:', error)
     return { success: false }
+  }
+})
+
+ipcMain.handle('get-previous-note-id', async (_event, currentNoteId: string) => {
+  try {
+    const previousId = await fileStorage.getPreviousNoteId(currentNoteId)
+    return previousId
+  } catch (error) {
+    console.error('Failed to get previous note ID:', error)
+    return null
+  }
+})
+
+ipcMain.handle('get-next-note-id', async (_event, currentNoteId: string) => {
+  try {
+    const nextId = await fileStorage.getNextNoteId(currentNoteId)
+    return nextId
+  } catch (error) {
+    console.error('Failed to get next note ID:', error)
+    return null
   }
 })
 

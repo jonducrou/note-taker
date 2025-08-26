@@ -1,6 +1,6 @@
 {
   "name": "note-taker",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Minimalist always-on-top note taking app",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -72,7 +72,7 @@
       }
     ],
     "mac": {
-      "category": "public.app-category.productivity", 
+      "category": "public.app-category.productivity",
       "target": "dmg",
       "icon": "app-icon.icns"
     }

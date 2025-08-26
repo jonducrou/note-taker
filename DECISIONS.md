@@ -99,12 +99,76 @@
 - **Rationale**: Users should own their data in familiar location
 - **Alternative Considered**: Application data directory (rejected as hidden)
 
+## 🎹 Navigation & UX Decisions
+
+### **Keyboard Navigation (Cmd+Up/Down)** ✅ CHOSEN
+**Why**: Fast chronological note browsing without mouse interaction
+- **Implementation**: Cmd+Down for older notes, Cmd+Up for newer notes
+- **Benefit**: Natural timeline navigation, matches user mental model
+- **Alternative Considered**: Arrow keys only (rejected due to editor conflicts)
+
+### **Dynamic Window Titles** ✅ CHOSEN
+**Why**: Provides context without taking screen space
+- **Format**: "Tue 26 Aug 14:31" extracted from note IDs
+- **Benefit**: Shows note timestamp in both system title and UI header
+- **Alternative Considered**: Static "Note Taker" title (rejected as less informative)
+
+### **No Navigation Wrapping** ✅ CHOSEN
+**Why**: Predictable boundary behaviour prevents confusion
+- **Implementation**: Navigation stops at first/last note
+- **Rationale**: Users expect clear start/end points in chronological lists
+- **Alternative Considered**: Circular navigation (rejected after user feedback)
+
+## 🧪 Testing & Quality Decisions
+
+### **Test-Driven Navigation Development** ✅ CHOSEN
+**Why**: Complex navigation logic required upfront verification
+- **Implementation**: Comprehensive test suite before UI integration
+- **Benefit**: Caught edge cases early, confident feature delivery
+- **Alternative Considered**: Manual testing only (rejected as error-prone)
+
+### **Jest + TypeScript Testing** ✅ CHOSEN
+**Why**: Type-safe testing with mocking capabilities
+- **Features**: 26+ tests covering FileStorage, IPC, navigation
+- **Benefit**: Prevents regressions, documents expected behaviour
+- **Alternative Considered**: No testing framework (rejected for production code)
+
+### **Coverage-Driven Development** ✅ CHOSEN
+**Why**: Ensures all critical paths are verified
+- **Implementation**: Coverage reports show untested code
+- **Target**: Focus on business logic and edge cases
+- **Alternative Considered**: Feature testing only (rejected as incomplete)
+
+## 📋 Process & Tooling Decisions
+
+### **Simplified GitHub Issue Templates** ✅ CHOSEN
+**Why**: Faster issue reporting encourages community engagement
+- **Implementation**: Minimal required fields, clear placeholders
+- **Rationale**: Simple is fast, essential info only
+- **Alternative Considered**: Comprehensive templates (rejected as barriers)
+
+### **Australian English Documentation** ✅ CHOSEN
+**Why**: Consistent voice and developer preference
+- **Implementation**: "colour" not "color", "realise" not "realize"
+- **Benefit**: Authentic communication style
+- **Alternative Considered**: US English (rejected for consistency)
+
 ## 🔄 What Didn't Work - Lessons Learned
 
 ### **Initial Complex UI Approach** ❌ REJECTED
 **Attempted**: Traditional form-based interface with separate fields
 **Problem**: Disrupted writing flow, felt like software not thinking
 **Solution**: Pivoted to text-first design with inline metadata
+
+### **First Navigation Implementation** ❌ REJECTED
+**Attempted**: Initial keyboard navigation with wrapping
+**Problem**: User reported confusing direction and unwanted looping
+**Solution**: Fixed direction mapping and removed wrap-around behaviour
+
+### **Comprehensive Issue Templates** ❌ REJECTED
+**Attempted**: Detailed GitHub forms with multiple required fields
+**Problem**: Too time-consuming, discourages quick bug reports
+**Solution**: Streamlined to essential information only
 
 ### **Separate Command Window** ❌ REJECTED  
 **Attempted**: Dedicated command window for navigation

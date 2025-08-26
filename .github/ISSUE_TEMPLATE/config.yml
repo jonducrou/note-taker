@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/jonducrou/note-taker/blob/main/README.md
+    about: Read the documentation for usage and development information
+  - name: 💬 Discussions  
+    url: https://github.com/jonducrou/note-taker/discussions
+    about: Ask questions and discuss ideas with the community

@@ -62,10 +62,11 @@ function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
     
-    const windowWidth = 300
-    const windowHeight = 400
-    const x = screenWidth - windowWidth - 20  // 20px from right edge
-    const y = screenHeight - windowHeight - 20  // 20px from bottom edge
+    // Different window sizes for dev vs production
+    const windowWidth = isDev ? 1200 : 300
+    const windowHeight = isDev ? 800 : 400
+    const x = isDev ? 50 : screenWidth - windowWidth - 20  // Center-left in dev, right edge in prod
+    const y = isDev ? 50 : screenHeight - windowHeight - 20  // Top in dev, bottom in prod
     
     mainWindow = new BrowserWindow({
       width: windowWidth,
@@ -73,11 +74,11 @@ function createWindow() {
       x: x,
       y: y,
       show: false,
-      alwaysOnTop: true,
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      fullscreenable: false,
+      alwaysOnTop: !isDev,  // Not always on top in dev mode for easier debugging
+      resizable: isDev,     // Resizable in dev mode
+      minimizable: isDev,   // Minimizable in dev mode  
+      maximizable: isDev,   // Maximizable in dev mode
+      fullscreenable: isDev,
       titleBarStyle: 'hiddenInset',
       vibrancy: 'under-window',
       visualEffectState: 'active',

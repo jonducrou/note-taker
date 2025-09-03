@@ -5,7 +5,7 @@
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
-    "dev:main": "tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
+    "dev:main": "NODE_ENV=development tsc -p src/main/tsconfig.json && NODE_ENV=development electron dist/main/main/main.js",
     "dev:renderer": "vite",
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p src/main/tsconfig.json",

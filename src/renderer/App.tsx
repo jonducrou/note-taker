@@ -208,7 +208,7 @@ const App: React.FC = () => {
       clearTimeout(saveTimeoutRef.current)
     }
     
-    // Auto-save after 1 second of no typing
+    // Auto-save after 250ms of no typing
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         const noteId = currentNoteIdRef.current
@@ -225,7 +225,7 @@ const App: React.FC = () => {
       } catch (error) {
         console.error('Failed to save note:', error)
       }
-    }, 1000)
+    }, 250)
   }, [])
 
   // Load initial note on startup

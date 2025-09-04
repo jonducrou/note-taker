@@ -15,7 +15,7 @@ A minimalist, always-on-top note-taking application for Mac built with Electron 
 - **Text-first**: 95% text area, minimal UI chrome
 - **Always available**: Global hotkey (Cmd+Shift+N) and system tray
 - **Smart but simple**: Understands structure without complex UI
-- **Fast**: Keyboard-driven with 1-second auto-save
+- **Fast**: Keyboard-driven with 250ms auto-save
 
 ### Note Format
 ```markdown

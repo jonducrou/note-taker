@@ -78,7 +78,7 @@ DevTeam <x- Product requirements delivered
 ### Getting Started
 1. Download and install the DMG from [releases](https://github.com/jonducrou/note-taker/releases)
 2. Launch - appears as always-on-top window in bottom-right corner  
-3. Start typing with text-first interface (auto-saves after 1s)
+3. Start typing with text-first interface (auto-saves after 250ms)
 4. Use `#group` and `@person` tags for organization
 5. Add actions with `[]` and connections with `Subject -> Subject`
 

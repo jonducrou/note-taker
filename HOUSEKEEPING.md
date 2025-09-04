@@ -92,10 +92,12 @@ The Note Taker app is mature, thoroughly tested, and ready for production use:
 ### Advanced Features  
 - Text command system (Cmd+K) with /today, /recent, /search
 - Keyboard navigation between notes (Cmd+Up/Down)
+- Intelligent navigation (Cmd+Left/Right) - jumps between notes with open actions
 - Dynamic window titles showing note timestamps
 - Cross-note completion tracking and aggregation
 - Group and audience autocomplete with suggestions
 - Inline metadata parsing (@group, @audience tags)
+- Auto-update system with GitHub releases integration
 
 ### Technical Excellence
 - TypeScript throughout with strict type checking  

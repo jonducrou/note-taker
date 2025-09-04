@@ -49,10 +49,12 @@
     "@monaco-editor/react": "^4.6.0",
     "@types/js-yaml": "^4.0.9",
     "date-fns": "^2.30.0",
+    "electron-log": "^5.4.3",
     "gray-matter": "^4.0.0",
     "js-yaml": "^4.1.0",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "update-electron-app": "^3.1.1"
   },
   "build": {
     "appId": "com.notetaker.app",
@@ -75,6 +77,11 @@
       "category": "public.app-category.productivity",
       "target": "dmg",
       "icon": "app-icon.icns"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "jonducrou",
+      "repo": "note-taker"
     }
   }
 }

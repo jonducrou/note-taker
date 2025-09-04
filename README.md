@@ -94,6 +94,12 @@ DevTeam <x- Product requirements delivered
 - **With...**: Notes grouped by audience member (only shows those with open actions)
 - All sections show completion counts in parentheses
 
+### Auto-Update
+- **Automatic Updates**: The app automatically checks for updates every 10 minutes
+- **Background Download**: Updates download in the background without interrupting work
+- **User Prompt**: When an update is ready, you'll see a dialog to restart and apply
+- **GitHub Releases**: Updates are delivered directly from GitHub releases
+
 ## Development
 
 ```bash
@@ -121,13 +127,13 @@ npm run test:all      # Run all tests including integration
 - **Testing**: Jest with comprehensive unit test coverage (49.57% FileStorage coverage)
 - **IPC**: Electron IPC for file operations, search, and menu structure
 
-## Recent Updates (v1.4.0)
+## Recent Updates (v1.6.0)
 
-- **Intelligent Audience Filtering**: "With..." menu only shows people with open actions
-- **Enhanced Test Coverage**: 52 comprehensive tests covering core functionality
-- **Improved Menu Logic**: Two-layer filtering for cleaner, action-focused menus
-- **Better Error Handling**: Comprehensive edge case coverage and resilience
-- **Code Quality**: Removed debug statements, improved TypeScript coverage
+- **Auto-Update**: Automatic background updates from GitHub releases every 10 minutes
+- **Intelligent Navigation**: Smart Cmd+Left/Right shortcuts to jump between notes with open actions
+- **Enhanced Performance**: Reduced auto-save delay to 250ms for better responsiveness
+- **Comprehensive Testing**: 81 total tests with extensive navigation scenario coverage
+- **Code Quality**: All TypeScript errors resolved, improved lint compliance
 
 ## Contributing
 

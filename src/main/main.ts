@@ -3,6 +3,17 @@ import { join } from 'path'
 import * as fs from 'fs'
 import { FileStorage } from '../storage/FileStorage'
 
+// Enable auto-update functionality in production only
+const isDev = process.env.NODE_ENV === 'development'
+if (!isDev) {
+  const { updateElectronApp } = require('update-electron-app')
+  updateElectronApp({
+    repo: 'jonducrou/note-taker',
+    updateInterval: '10 minutes',
+    logger: require('electron-log')
+  })
+}
+
 // Get version from app instead of requiring package.json
 const appVersion = app.getVersion()
 
@@ -10,8 +21,6 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const fileStorage = new FileStorage()
 let isQuitting = false
-
-const isDev = process.env.NODE_ENV === 'development'
 
 function getTrayIconPath(): string | null {
   // Check if we're running from the project directory (assets folder exists)

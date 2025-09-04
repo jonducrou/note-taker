@@ -47,7 +47,7 @@ jest.mock('electron', () => ({
 
 describe('Main Process IPC Handlers', () => {
   let mockFileStorage: jest.Mocked<FileStorage>
-  let ipcHandlers: { [key: string]: Function }
+  let ipcHandlers: { [key: string]: (...args: any[]) => any }
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -81,7 +81,7 @@ describe('Main Process IPC Handlers', () => {
 
     // Capture IPC handlers
     ipcHandlers = {}
-    ;(ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: Function) => {
+    ;(ipcMain.handle as jest.Mock).mockImplementation((channel: string, handler: (...args: any[]) => any) => {
       ipcHandlers[channel] = handler
     })
 

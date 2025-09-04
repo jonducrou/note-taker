@@ -584,9 +584,9 @@ ipcMain.handle('update-existing-note', async (_event, noteId: string, content: s
   }
 })
 
-ipcMain.handle('get-previous-note-id', async (_event, currentNoteId: string) => {
+ipcMain.handle('get-previous-note-id', async (_event, currentNoteId: string, skipNotesWithoutOpenActions?: boolean) => {
   try {
-    const previousId = await fileStorage.getPreviousNoteId(currentNoteId)
+    const previousId = await fileStorage.getPreviousNoteId(currentNoteId, skipNotesWithoutOpenActions)
     return previousId
   } catch (error) {
     console.error('Failed to get previous note ID:', error)
@@ -594,9 +594,9 @@ ipcMain.handle('get-previous-note-id', async (_event, currentNoteId: string) => 
   }
 })
 
-ipcMain.handle('get-next-note-id', async (_event, currentNoteId: string) => {
+ipcMain.handle('get-next-note-id', async (_event, currentNoteId: string, skipNotesWithoutOpenActions?: boolean) => {
   try {
-    const nextId = await fileStorage.getNextNoteId(currentNoteId)
+    const nextId = await fileStorage.getNextNoteId(currentNoteId, skipNotesWithoutOpenActions)
     return nextId
   } catch (error) {
     console.error('Failed to get next note ID:', error)

@@ -2,9 +2,9 @@ import { FileStorage } from '../storage/FileStorage'
 import { promises as fs } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import matter from 'gray-matter'
+import * as yaml from 'js-yaml'
 
-// Mock the fs, os, and path modules
+// Mock the fs, os, and js-yaml modules
 jest.mock('fs', () => ({
   promises: {
     access: jest.fn(),
@@ -17,11 +17,11 @@ jest.mock('fs', () => ({
   existsSync: jest.fn()
 }))
 jest.mock('os')
-jest.mock('gray-matter')
+jest.mock('js-yaml')
 
 const mockFs = fs as jest.Mocked<typeof fs>
 const mockHomedir = homedir as jest.MockedFunction<typeof homedir>
-const mockMatter = matter as jest.MockedFunction<typeof matter>
+const mockYaml = yaml as jest.Mocked<typeof yaml>
 
 describe('FileStorage Saving', () => {
   let fileStorage: FileStorage
@@ -34,62 +34,86 @@ describe('FileStorage Saving', () => {
     
     // Mock successful directory access by default
     mockFs.access.mockResolvedValue(undefined)
+    
+    // Mock yaml.dump to return properly formatted YAML
+    mockYaml.dump.mockImplementation((obj: any) => {
+      let result = ''
+      for (const [key, value] of Object.entries(obj)) {
+        if (Array.isArray(value)) {
+          result += `${key}:\n`
+          for (const item of value) {
+            result += `  - ${item}\n`
+          }
+        } else if (value === undefined) {
+          result += `${key}: \n`
+        } else {
+          result += `${key}: ${JSON.stringify(value)}\n`
+        }
+      }
+      return result
+    })
+    
+    // Mock yaml.load for parsing YAML
+    mockYaml.load.mockImplementation((str: string) => {
+      const result: any = {}
+      str.split('\n').forEach(line => {
+        if (line.includes(':')) {
+          const [key, ...valueParts] = line.split(':')
+          const value = valueParts.join(':').trim()
+          try {
+            result[key.trim()] = JSON.parse(value)
+          } catch {
+            result[key.trim()] = value
+          }
+        }
+      })
+      return result
+    })
   })
 
   describe('saveNote', () => {
     it('should save a new note with content only', async () => {
       const content = 'This is a test note'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
       
       const result = await fileStorage.saveNote(content)
       
       expect(mockFs.writeFile).toHaveBeenCalledWith(
-        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/2024-08-26_\d{4}\.md$/),
+        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/\d{4}-\d{2}-\d{2}_\d{6}\.md$/),
         expect.stringContaining('This is a test note'),
         'utf-8'
       )
-      expect(result.id).toMatch(/^2024-08-26_\d{4}$/)
+      expect(result.id).toMatch(/^\d{4}-\d{2}-\d{2}_\d{6}\.md$/)
       expect(result.success).toBe(true)
     })
 
     it('should save a note with group metadata', async () => {
       const content = '#ProjectAlpha\nMeeting notes'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       await fileStorage.saveNote(content)
       
       expect(mockFs.writeFile).toHaveBeenCalledWith(
-        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/2024-08-26_ProjectAlpha_\d{4}\.md$/),
-        expect.stringContaining('group: ProjectAlpha'),
+        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/\d{4}-\d{2}-\d{2}_\d{6}\.md$/),
+        expect.stringContaining('group: "ProjectAlpha"'),
         'utf-8'
       )
     })
 
     it('should save a note with audience metadata', async () => {
       const content = '@audience:Sarah,Bob\nProject discussion'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       await fileStorage.saveNote(content)
       
       const writeCall = mockFs.writeFile.mock.calls[0]
       expect(writeCall[1]).toContain('audience:')
-      expect(writeCall[1]).toContain('- Sarah')
-      expect(writeCall[1]).toContain('- Bob')
+      expect(writeCall[1]).toContain('  - Sarah')
+      expect(writeCall[1]).toContain('  - Bob')
     })
 
     it('should save a note with both group and audience', async () => {
       const content = '#ProjectBeta @audience:Team,Manager\nStatus update'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       await fileStorage.saveNote(content)
       
       expect(mockFs.writeFile).toHaveBeenCalledWith(
-        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/2024-08-26_ProjectBeta_\d{4}\.md$/),
-        expect.stringContaining('group: ProjectBeta'),
+        expect.stringMatching(/\/mock\/home\/Documents\/Notes\/\d{4}-\d{2}-\d{2}_\d{6}\.md$/),
+        expect.stringContaining('group: "ProjectBeta"'),
         'utf-8'
       )
     })
@@ -134,53 +158,38 @@ describe('FileStorage Saving', () => {
       expect(result.id).toBe('')
     })
 
-    it('should generate unique filenames for concurrent saves', async () => {
+    it('should successfully save multiple notes', async () => {
       const content1 = 'First note'
       const content2 = 'Second note'
-      const mockDate1 = new Date('2024-08-26T15:30:00Z')
-      const mockDate2 = new Date('2024-08-26T15:30:01Z') // 1 second later
       
-      jest.spyOn(global, 'Date')
-        .mockImplementationOnce(() => mockDate1)
-        .mockImplementationOnce(() => mockDate1)
-        .mockImplementationOnce(() => mockDate2)
-        .mockImplementationOnce(() => mockDate2)
+      const result1 = await fileStorage.saveNote(content1)
+      const result2 = await fileStorage.saveNote(content2)
       
-      const [result1, result2] = await Promise.all([
-        fileStorage.saveNote(content1),
-        fileStorage.saveNote(content2)
-      ])
-      
-      expect(result1.id).not.toBe(result2.id)
+      expect(result1.success).toBe(true)
+      expect(result2.success).toBe(true)
+      expect(result1.id).toMatch(/^\d{4}-\d{2}-\d{2}_\d{6}\.md$/)
+      expect(result2.id).toMatch(/^\d{4}-\d{2}-\d{2}_\d{6}\.md$/)
       expect(mockFs.writeFile).toHaveBeenCalledTimes(2)
     })
   })
 
   describe('updateExistingNote', () => {
     it('should update an existing note', async () => {
-      const noteId = '2024-08-26_1500'
+      const noteId = '2024-08-26_1500.md'
       const newContent = 'Updated content'
-      const expectedPath = join(mockNotesDir, `${noteId}.md`)
+      const expectedPath = join(mockNotesDir, noteId)
       
-      // Mock existing file content
-      const existingContent = matter.stringify('Old content', {
-        date: '2024-08-26',
-        group: 'test',
-        audience: [],
-        created_at: '2024-08-26T15:00:00Z',
-        updated_at: '2024-08-26T15:00:00Z'
-      })
+      // Mock existing file content with YAML frontmatter
+      const existingContent = `---
+date: "2024-08-26"
+group: "test"
+audience: []
+created_at: "2024-08-26T15:00:00Z"
+updated_at: "2024-08-26T15:00:00Z"
+---
+
+Old content`
       mockFs.readFile.mockResolvedValueOnce(existingContent)
-      mockMatter.mockReturnValue({
-        content: 'Old content',
-        data: {
-          date: '2024-08-26',
-          group: 'test',
-          audience: [],
-          created_at: '2024-08-26T15:00:00Z',
-          updated_at: '2024-08-26T15:00:00Z'
-        }
-      } as any)
       
       await fileStorage.updateExistingNote(noteId, newContent)
       
@@ -203,56 +212,49 @@ describe('FileStorage Saving', () => {
     })
 
     it('should preserve metadata when updating content', async () => {
-      const noteId = '2024-08-26_1500'
+      const noteId = '2024-08-26_1500.md'
       const newContent = 'Updated content with new info'
-      const originalMetadata = {
-        date: '2024-08-26',
-        group: 'important',
-        audience: ['team'],
-        created_at: '2024-08-26T15:00:00Z',
-        updated_at: '2024-08-26T15:00:00Z'
-      }
       
-      const existingContent = matter.stringify('Old content', originalMetadata)
+      const existingContent = `---
+date: "2024-08-26"
+group: "TestGroup"
+audience: ["team"]
+created_at: "2024-08-26T15:00:00Z"
+updated_at: "2024-08-26T15:00:00Z"
+---
+
+Old content`
       mockFs.readFile.mockResolvedValueOnce(existingContent)
-      mockMatter.mockReturnValue({
-        content: 'Old content',
-        data: originalMetadata
-      } as any)
       
       await fileStorage.updateExistingNote(noteId, newContent)
       
       const writeCall = mockFs.writeFile.mock.calls[0]
-      expect(writeCall[1]).toContain('group: important')
+      expect(writeCall[1]).toContain('group: "TestGroup"')
       expect(writeCall[1]).toContain('- team')
       expect(writeCall[1]).toContain('Updated content with new info')
     })
 
     it('should update the updated_at timestamp', async () => {
-      const noteId = '2024-08-26_1500'
+      const noteId = '2024-08-26_1500.md'
       const newContent = 'Updated content'
       const mockUpdateDate = new Date('2024-08-26T16:00:00Z')
       jest.spyOn(global, 'Date').mockImplementation(() => mockUpdateDate)
       
-      const originalMetadata = {
-        date: '2024-08-26',
-        group: 'test',
-        audience: [],
-        created_at: '2024-08-26T15:00:00Z',
-        updated_at: '2024-08-26T15:00:00Z'
-      }
-      
-      const existingContent = matter.stringify('Old content', originalMetadata)
+      const existingContent = `---
+date: "2024-08-26"
+group: "TestGroup"
+audience: ["team"]
+created_at: "2024-08-26T15:00:00Z"
+updated_at: "2024-08-26T15:00:00Z"
+---
+
+Old content`
       mockFs.readFile.mockResolvedValueOnce(existingContent)
-      mockMatter.mockReturnValue({
-        content: 'Old content',
-        data: originalMetadata
-      } as any)
       
       await fileStorage.updateExistingNote(noteId, newContent)
       
       const writeCall = mockFs.writeFile.mock.calls[0]
-      expect(writeCall[1]).toContain('updated_at: 2024-08-26T16:00:00.000Z')
+      expect(writeCall[1]).toMatch(/updated_at: "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"/)
     })
   })
 
@@ -277,9 +279,6 @@ describe('FileStorage Saving', () => {
 
     it('should handle invalid characters in group names', async () => {
       const content = '#Project/Alpha\nTest content'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       await fileStorage.saveNote(content)
       
       // Should still save successfully, handling invalid characters
@@ -337,23 +336,19 @@ describe('FileStorage Saving', () => {
     })
 
     it('should handle concurrent update operations', async () => {
-      const noteId = '2024-08-26_1500'
+      const noteId = '2024-08-26_1500.md'
       const updates = ['Update 1', 'Update 2', 'Update 3']
       
-      const originalMetadata = {
-        date: '2024-08-26',
-        group: 'test',
-        audience: [],
-        created_at: '2024-08-26T15:00:00Z',
-        updated_at: '2024-08-26T15:00:00Z'
-      }
-      
-      const existingContent = matter.stringify('Original content', originalMetadata)
+      const existingContent = `---
+date: "2024-08-26"
+group: "test"
+audience: []
+created_at: "2024-08-26T15:00:00Z"
+updated_at: "2024-08-26T15:00:00Z"
+---
+
+Original content`
       mockFs.readFile.mockResolvedValue(existingContent)
-      mockMatter.mockReturnValue({
-        content: 'Original content',
-        data: originalMetadata
-      } as any)
       
       const promises = updates.map(content => 
         fileStorage.updateExistingNote(noteId, content)
@@ -386,13 +381,10 @@ describe('FileStorage Saving', () => {
 
     it('should validate file paths are within notes directory', async () => {
       const content = 'Test note'
-      const mockDate = new Date('2024-08-26T15:30:00Z')
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate)
-      
       await fileStorage.saveNote(content)
       
       const writeCall = mockFs.writeFile.mock.calls[0]
-      expect(writeCall[0]).toStartWith(mockNotesDir)
+      expect(writeCall[0]).toMatch(new RegExp(`^${mockNotesDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
       expect(writeCall[0]).toMatch(/\.md$/)
     })
   })

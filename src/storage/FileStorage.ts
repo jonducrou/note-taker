@@ -518,9 +518,10 @@ export class FileStorage {
    * Get the ID of the next note (older note in chronological order)
    * Navigation stops at the last note instead of wrapping
    * @param currentNoteId - The ID of the current note
+   * @param skipNotesWithoutOpenActions - Skip notes with no incomplete items (default: false)
    * @returns The ID of the next note, or null if no next note or error
    */
-  async getNextNoteId(currentNoteId: string): Promise<string | null> {
+  async getNextNoteId(currentNoteId: string, skipNotesWithoutOpenActions: boolean = false): Promise<string | null> {
     try {
       const notes = await this.loadNotes()
       
@@ -537,14 +538,29 @@ export class FileStorage {
         return null
       }
       
-      // Return null if already at the last note (no wrapping)
-      if (currentIndex === notes.length - 1) {
-        return null
+      // Look for next note, starting from the note after current
+      for (let i = currentIndex + 1; i < notes.length; i++) {
+        const candidate = notes[i]
+        
+        // If not skipping based on actions, return first next note
+        if (!skipNotesWithoutOpenActions) {
+          return candidate.id
+        }
+        
+        // If skipping, check if this note has open actions
+        const incompleteCount = this.countIncompleteItems(candidate.content)
+        if (incompleteCount > 0) {
+          return candidate.id
+        }
       }
       
-      // Get next note
-      const nextIndex = currentIndex + 1
-      return notes[nextIndex].id
+      // If skipping and no note with open actions found, return last note
+      if (skipNotesWithoutOpenActions && currentIndex < notes.length - 1) {
+        return notes[notes.length - 1].id
+      }
+      
+      // No suitable next note found
+      return null
       
     } catch (error) {
       console.error('Failed to get next note ID:', error)
@@ -556,9 +572,10 @@ export class FileStorage {
    * Get the ID of the previous note (newer note in chronological order)  
    * Navigation stops at the first note instead of wrapping
    * @param currentNoteId - The ID of the current note
+   * @param skipNotesWithoutOpenActions - Skip notes with no incomplete items (default: false)
    * @returns The ID of the previous note, or null if no previous note or error
    */
-  async getPreviousNoteId(currentNoteId: string): Promise<string | null> {
+  async getPreviousNoteId(currentNoteId: string, skipNotesWithoutOpenActions: boolean = false): Promise<string | null> {
     try {
       const notes = await this.loadNotes()
       
@@ -575,14 +592,29 @@ export class FileStorage {
         return null
       }
       
-      // Return null if already at the first note (no wrapping)
-      if (currentIndex === 0) {
-        return null
+      // Look for previous note, starting from the note before current
+      for (let i = currentIndex - 1; i >= 0; i--) {
+        const candidate = notes[i]
+        
+        // If not skipping based on actions, return first previous note
+        if (!skipNotesWithoutOpenActions) {
+          return candidate.id
+        }
+        
+        // If skipping, check if this note has open actions
+        const incompleteCount = this.countIncompleteItems(candidate.content)
+        if (incompleteCount > 0) {
+          return candidate.id
+        }
       }
       
-      // Get previous note
-      const previousIndex = currentIndex - 1
-      return notes[previousIndex].id
+      // If skipping and no note with open actions found, return first note
+      if (skipNotesWithoutOpenActions && currentIndex > 0) {
+        return notes[0].id
+      }
+      
+      // No suitable previous note found
+      return null
       
     } catch (error) {
       console.error('Failed to get previous note ID:', error)

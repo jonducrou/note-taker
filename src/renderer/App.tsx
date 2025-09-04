@@ -366,6 +366,50 @@ const App: React.FC = () => {
                 console.error('Failed to navigate to next note:', error)
               }
             })
+
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.LeftArrow , async () => {
+              console.log('Cmd+Left pressed - navigating to next note with action items')
+              try {
+                if (!currentNoteIdRef.current) {
+                  console.log('No current note ID available')
+                  return
+                }
+                
+                const nextId = await (window as any).electronAPI?.getNextNoteId(currentNoteIdRef.current, true)
+                console.log('Next note ID:', nextId)
+                
+                if (nextId) {
+                  await loadNoteById(nextId)
+                  console.log('Successfully loaded next note:', nextId)
+                } else {
+                  console.log('No next note available')
+                }
+              } catch (error) {
+                console.error('Failed to navigate to next note:', error)
+              }
+            })
+
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.RightArrow, async () => {
+              console.log('Cmd+Right pressed - navigating to previous note with action items')
+              try {
+                if (!currentNoteIdRef.current) {
+                  console.log('No current note ID available')
+                  return
+                }
+                
+                const previousId = await (window as any).electronAPI?.getPreviousNoteId(currentNoteIdRef.current, true)
+                console.log('Previous note ID:', previousId)
+                
+                if (previousId) {
+                  await loadNoteById(previousId)
+                  console.log('Successfully loaded previous note:', previousId)
+                } else {
+                  console.log('No previous note available')
+                }
+              } catch (error) {
+                console.error('Failed to navigate to previous note:', error)
+              }
+            })
             
             // Add double-click handler for completion toggling
             let lastClickTime = 0

@@ -24,7 +24,6 @@ const mockMatter = matter as jest.MockedFunction<typeof matter>
 
 describe('FileStorage Integration Tests', () => {
   let fileStorage: FileStorage
-  const mockNotesDir = '/mock/home/Documents/Notes'
   
   beforeEach(() => {
     jest.clearAllMocks()
@@ -65,7 +64,6 @@ describe('FileStorage Integration Tests', () => {
 
     it('should handle save-update-save cycle correctly', async () => {
       const noteId = '2024-08-26_1500'
-      const originalContent = '#Test\nOriginal content'
       const updatedContent = '#Test\nUpdated content with new info'
       
       // Mock the update operation

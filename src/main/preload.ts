@@ -62,12 +62,12 @@ const electronAPI = {
     return ipcRenderer.invoke('update-existing-note', noteId, content)
   },
   
-  getPreviousNoteId: (currentNoteId: string): Promise<string | null> => {
-    return ipcRenderer.invoke('get-previous-note-id', currentNoteId)
+  getPreviousNoteId: (currentNoteId: string, skipNotesWithoutOpenActions?: boolean): Promise<string | null> => {
+    return ipcRenderer.invoke('get-previous-note-id', currentNoteId, skipNotesWithoutOpenActions)
   },
   
-  getNextNoteId: (currentNoteId: string): Promise<string | null> => {
-    return ipcRenderer.invoke('get-next-note-id', currentNoteId)
+  getNextNoteId: (currentNoteId: string, skipNotesWithoutOpenActions?: boolean): Promise<string | null> => {
+    return ipcRenderer.invoke('get-next-note-id', currentNoteId, skipNotesWithoutOpenActions)
   },
   
   setWindowTitle: (title: string): Promise<{ success: boolean }> => {

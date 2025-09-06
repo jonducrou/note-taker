@@ -326,16 +326,42 @@ const App: React.FC = () => {
       
       if (result?.success) {
         console.log('Note deleted successfully')
-        // Clear the editor and reset state
-        setContent('')
-        setCurrentNoteId(null)
-        currentNoteIdRef.current = null
-        // Clear any pending saves
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
+        
+        // Try to load any available note after deletion
+        try {
+          console.log('Looking for any available note to load...')
+          const recentNote = await (window as any).electronAPI?.loadRecentNote()
+          
+          if (recentNote) {
+            console.log('Loading most recent note:', recentNote.id)
+            setContent(recentNote.content)
+            setCurrentNoteId(recentNote.id)
+            currentNoteIdRef.current = recentNote.id
+            await updateWindowTitle(recentNote.id)
+          } else {
+            console.log('No other notes available, clearing editor')
+            // Clear the editor and reset state if no other notes
+            setContent('')
+            setCurrentNoteId(null)
+            currentNoteIdRef.current = null
+            // Clear any pending saves
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+            }
+            // Update window title
+            await updateWindowTitle(null)
+          }
+        } catch (navError) {
+          console.error('Failed to navigate after deletion:', navError)
+          // Fallback: just clear the editor
+          setContent('')
+          setCurrentNoteId(null)
+          currentNoteIdRef.current = null
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+          }
+          await updateWindowTitle(null)
         }
-        // Update window title
-        await updateWindowTitle(null)
       } else {
         console.error('Failed to delete note')
       }

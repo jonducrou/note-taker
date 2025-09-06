@@ -628,8 +628,14 @@ export class FileStorage {
    */
   async deleteNote(id: string): Promise<boolean> {
     try {
-      const notePath = join(this.notesDir, `${id}.md`)
+      // The id already includes .md extension, so don't add it again
+      const notePath = id.endsWith('.md') 
+        ? join(this.notesDir, id)
+        : join(this.notesDir, `${id}.md`)
+      
+      console.log('Attempting to delete file at path:', notePath)
       await fs.unlink(notePath)
+      console.log('Successfully deleted note:', id)
       return true
     } catch (error) {
       console.error(`Failed to delete note ${id}:`, error)

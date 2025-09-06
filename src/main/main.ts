@@ -438,7 +438,15 @@ ipcMain.handle('load-notes', async () => {
 })
 
 ipcMain.handle('load-recent-note', async () => {
-  return await fileStorage.loadMostRecentNote()
+  try {
+    console.log('IPC: Loading most recent note...')
+    const recentNote = await fileStorage.loadMostRecentNote()
+    console.log('IPC: Recent note loaded:', recentNote ? recentNote.id : 'null')
+    return recentNote
+  } catch (error) {
+    console.error('IPC: Failed to load recent note:', error)
+    return null
+  }
 })
 
 ipcMain.handle('search-notes', async (_event, query: string) => {

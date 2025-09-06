@@ -232,10 +232,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadInitialNote = async () => {
       try {
+        console.log('Loading initial note...')
         const recentNote = await (window as any).electronAPI?.loadRecentNote()
+        console.log('Recent note loaded:', recentNote)
+        
         if (recentNote) {
           setContent(recentNote.content)
           setCurrentNoteId(recentNote.id)
+          console.log('Set currentNoteId to:', recentNote.id)
+        } else {
+          console.log('No recent note found')
         }
         
       } catch (error) {
@@ -248,24 +254,46 @@ const App: React.FC = () => {
     loadInitialNote()
     
     // Listen for note loading from menu
+    let cleanupLoadNote: (() => void) | undefined
+    let cleanupDeleteNote: (() => void) | undefined
+    
     if ((window as any).electronAPI) {
-      (window as any).electronAPI.onLoadNote(async (noteId: string) => {
+      cleanupLoadNote = (window as any).electronAPI.onLoadNote(async (noteId: string) => {
         await loadNoteById(noteId)
       })
 
       // Listen for delete current note from menu
-      (window as any).electronAPI.onDeleteCurrentNote(async () => {
+      cleanupDeleteNote = (window as any).electronAPI.onDeleteCurrentNote(async () => {
         await deleteCurrentNote()
       })
+    }
+
+    // Cleanup function
+    return () => {
+      if (cleanupLoadNote) cleanupLoadNote()
+      if (cleanupDeleteNote) cleanupDeleteNote()
     }
   }, [])
 
   const loadNoteById = async (noteId: string) => {
     try {
+      console.log('loadNoteById called with noteId:', noteId)
       const note = await (window as any).electronAPI?.loadNoteById(noteId)
+      console.log('Note loaded from backend:', note)
+      
       if (note) {
         setContent(note.content)
         setCurrentNoteId(noteId)
+        console.log('Set currentNoteId to:', noteId)
+        
+        // Update the ref as well for navigation
+        currentNoteIdRef.current = noteId
+        console.log('Set currentNoteIdRef.current to:', noteId)
+        
+        // Update window title
+        await updateWindowTitle(noteId)
+      } else {
+        console.log('No note returned from backend')
       }
     } catch (error) {
       console.error('Failed to load note by ID:', error)
@@ -282,20 +310,26 @@ const App: React.FC = () => {
   }, [])
 
   const deleteCurrentNote = async () => {
-    if (!currentNoteId) {
-      console.log('No current note to delete')
+    console.log('deleteCurrentNote called, currentNoteId:', currentNoteId)
+    console.log('deleteCurrentNote called, currentNoteIdRef.current:', currentNoteIdRef.current)
+    
+    const noteIdToDelete = currentNoteIdRef.current || currentNoteId
+    
+    if (!noteIdToDelete) {
+      console.log('No current note to delete - both currentNoteId and ref are null/undefined')
       return
     }
 
     try {
-      console.log('Deleting note:', currentNoteId)
-      const result = await (window as any).electronAPI?.deleteNote(currentNoteId)
+      console.log('Deleting note:', noteIdToDelete)
+      const result = await (window as any).electronAPI?.deleteNote(noteIdToDelete)
       
       if (result?.success) {
         console.log('Note deleted successfully')
         // Clear the editor and reset state
         setContent('')
         setCurrentNoteId(null)
+        currentNoteIdRef.current = null
         // Clear any pending saves
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)

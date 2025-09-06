@@ -81,11 +81,13 @@ const electronAPI = {
   // Listen for note loading messages from menu
   onLoadNote: (callback: (noteId: string) => void) => {
     ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))
+    return () => ipcRenderer.removeAllListeners('load-note')
   },
 
   // Listen for delete current note messages from menu
   onDeleteCurrentNote: (callback: () => void) => {
     ipcRenderer.on('delete-current-note', () => callback())
+    return () => ipcRenderer.removeAllListeners('delete-current-note')
   }
 }
 

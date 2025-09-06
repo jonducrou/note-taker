@@ -73,10 +73,19 @@ const electronAPI = {
   setWindowTitle: (title: string): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('set-window-title', title)
   },
+
+  deleteNote: (noteId: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('delete-note', noteId)
+  },
   
   // Listen for note loading messages from menu
   onLoadNote: (callback: (noteId: string) => void) => {
     ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))
+  },
+
+  // Listen for delete current note messages from menu
+  onDeleteCurrentNote: (callback: () => void) => {
+    ipcRenderer.on('delete-current-note', () => callback())
   }
 }
 

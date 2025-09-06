@@ -620,4 +620,20 @@ export class FileStorage {
       return null
     }
   }
+
+  /**
+   * Delete a note by ID
+   * @param id - The ID of the note to delete
+   * @returns Promise<boolean> - true if deletion was successful
+   */
+  async deleteNote(id: string): Promise<boolean> {
+    try {
+      const notePath = join(this.notesDir, `${id}.md`)
+      await fs.unlink(notePath)
+      return true
+    } catch (error) {
+      console.error(`Failed to delete note ${id}:`, error)
+      return false
+    }
+  }
 }

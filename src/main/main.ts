@@ -254,6 +254,26 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
           }
         }
       },
+      {
+        label: 'Delete Current Note',
+        click: async () => {
+          if (mainWindow) {
+            const result = await dialog.showMessageBox(mainWindow, {
+              type: 'warning',
+              buttons: ['Cancel', 'Delete'],
+              defaultId: 0,
+              cancelId: 0,
+              title: 'Delete Note',
+              message: 'Are you sure you want to delete the current note?',
+              detail: 'This action cannot be undone.'
+            })
+            
+            if (result.response === 1) { // Delete button clicked
+              mainWindow.webContents.send('delete-current-note')
+            }
+          }
+        }
+      },
       { type: 'separator' },
       {
         label: 'Open Notes',
@@ -612,6 +632,20 @@ ipcMain.handle('set-window-title', async (_event, title: string) => {
     return { success: true }
   } catch (error) {
     console.error('Failed to set window title:', error)
+    return { success: false }
+  }
+})
+
+ipcMain.handle('delete-note', async (_event, noteId: string) => {
+  try {
+    const success = await fileStorage.deleteNote(noteId)
+    if (success) {
+      // Refresh tray menu to remove deleted note
+      await createTray()
+    }
+    return { success }
+  } catch (error) {
+    console.error('Failed to delete note:', error)
     return { success: false }
   }
 })

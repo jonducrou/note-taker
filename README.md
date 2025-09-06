@@ -29,6 +29,7 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **Tab indentation**: Tab/Shift-Tab for bullet point indentation
 - **Keyboard navigation**: `Cmd+Up` (newer notes) and `Cmd+Down` (older notes) to navigate between notes
 - **Dynamic window title**: Shows note creation date/time in format "Tue 26 Aug 14:31"
+- **Delete current note**: Right-click system tray → "Delete Current Note" with confirmation dialog
 
 ### 📊 **Smart Organization**
 - **Open Notes**: Shows notes with incomplete items from last month
@@ -87,6 +88,7 @@ DevTeam <x- Product requirements delivered
 - **Double-click**: Complete `[]` actions and `->` connections
 - **Tab/Shift-Tab**: Indent/outdent bullet points
 - **Type `#` or `@`**: Smart autocomplete from recent notes
+- **Delete note**: Right-click tray → "Delete Current Note" → confirm deletion
 
 ### Menu Organization
 - **Open Notes**: Recent notes with incomplete items

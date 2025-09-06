@@ -466,9 +466,8 @@ export class FileStorage {
     const grouped: { [audience: string]: Note[] } = {}
     
     recentNotes.forEach(note => {
-      // Only include notes that have incomplete items
-      const incompleteCount = this.countIncompleteItems(note.content)
-      if (incompleteCount > 0 && note.metadata.audience && note.metadata.audience.length > 0) {
+      // Include all notes that have audience members
+      if (note.metadata.audience && note.metadata.audience.length > 0) {
         note.metadata.audience.forEach(person => {
           // Clean up audience name (remove @ if present)
           const cleanPerson = person.startsWith('@') ? person.slice(1) : person

@@ -1,4 +1,4 @@
-import { FileStorage } from '../storage/index'
+import { FileStorage } from '../storage/FileStorage'
 import { Note } from '../types'
 
 describe('FileStorage Navigation', () => {

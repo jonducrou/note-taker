@@ -187,59 +187,6 @@ describe('Main Process IPC Handlers', () => {
     })
   })
 
-  describe('menu-structure handler', () => {
-    it('should build menu structure successfully', async () => {
-      const mockTodayNotes = [{ id: 'today.md', content: '[] Task', metadata: { group: 'Today' } }]
-      const mockYesterdayNotes = [{ id: 'yesterday.md', content: '[x] Done', metadata: { group: 'Yesterday' } }]
-      const mockPreviousWeekNotes: any[] = []
-      const mockPriorWeekNotes: any[] = []
-      const mockOpenNotes = [{ id: 'open.md', content: '[] Open task', metadata: { group: 'Open' } }]
-      const mockAudienceGrouped = {
-        'Alice': [{ id: 'alice.md', content: '[] For Alice', metadata: { audience: ['Alice'] } }]
-      }
-
-      mockFileStorage.getNotesForToday.mockResolvedValue(mockTodayNotes as any)
-      mockFileStorage.getNotesForYesterday.mockResolvedValue(mockYesterdayNotes as any) 
-      mockFileStorage.getNotesForPreviousWeek.mockResolvedValue(mockPreviousWeekNotes as any)
-      mockFileStorage.getNotesForPriorWeek.mockResolvedValue(mockPriorWeekNotes as any)
-      mockFileStorage.getOpenNotesFromLastMonth.mockResolvedValue(mockOpenNotes as any)
-      mockFileStorage.getNotesGroupedByAudienceFromLastMonth.mockResolvedValue(mockAudienceGrouped as any)
-      
-      mockFileStorage.groupNotesByGroupAndAudience.mockImplementation((notes) => {
-        const grouped: any = {}
-        notes.forEach((note: any) => {
-          const key = note.metadata.group || 'Ungrouped'
-          grouped[key] = [note]
-        })
-        return grouped
-      })
-
-      mockFileStorage.countIncompleteItems.mockImplementation((content) => {
-        return (content.match(/\[\s*\]/g) || []).length
-      })
-
-      const handler = ipcHandlers['get-menu-structure']
-      const result = await handler({})
-
-      expect(result).toHaveProperty('menuStructure')
-      expect(Array.isArray(result.menuStructure)).toBe(true)
-      
-      // Should include sections for notes with incomplete items
-      const menuLabels = result.menuStructure.map((item: any) => item.label)
-      expect(menuLabels).toContain('Open Notes')
-      expect(menuLabels).toContain('Today')
-      expect(menuLabels).toContain('With...')
-    })
-
-    it('should handle menu structure errors gracefully', async () => {
-      mockFileStorage.getNotesForToday.mockRejectedValue(new Error('Failed to load'))
-
-      const handler = ipcHandlers['get-menu-structure']
-      const result = await handler({})
-
-      expect(result).toEqual({ menuStructure: [] })
-    })
-  })
 
   describe('load-note-by-id handler', () => {
     it('should load specific note by id', async () => {

@@ -252,6 +252,11 @@ const App: React.FC = () => {
       (window as any).electronAPI.onLoadNote(async (noteId: string) => {
         await loadNoteById(noteId)
       })
+
+      // Listen for delete current note from menu
+      (window as any).electronAPI.onDeleteCurrentNote(async () => {
+        await deleteCurrentNote()
+      })
     }
   }, [])
 
@@ -275,6 +280,35 @@ const App: React.FC = () => {
       clearTimeout(saveTimeoutRef.current)
     }
   }, [])
+
+  const deleteCurrentNote = async () => {
+    if (!currentNoteId) {
+      console.log('No current note to delete')
+      return
+    }
+
+    try {
+      console.log('Deleting note:', currentNoteId)
+      const result = await (window as any).electronAPI?.deleteNote(currentNoteId)
+      
+      if (result?.success) {
+        console.log('Note deleted successfully')
+        // Clear the editor and reset state
+        setContent('')
+        setCurrentNoteId(null)
+        // Clear any pending saves
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current)
+        }
+        // Update window title
+        await updateWindowTitle(null)
+      } else {
+        console.error('Failed to delete note')
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error)
+    }
+  }
 
   if (isLoading) {
     return (

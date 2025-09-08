@@ -101,10 +101,11 @@
 
 ## 🎹 Navigation & UX Decisions
 
-### **Keyboard Navigation (Cmd+Up/Down)** ✅ CHOSEN
-**Why**: Fast chronological note browsing without mouse interaction
-- **Implementation**: Cmd+Down for older notes, Cmd+Up for newer notes
-- **Benefit**: Natural timeline navigation, matches user mental model
+### **Keyboard Navigation (Option+Arrows)** ✅ CHOSEN
+**Why**: Fast chronological note browsing without conflicting with text editing
+- **Implementation**: Option+Down for older notes, Option+Up for newer notes, Option+Left/Right for action navigation
+- **Benefit**: Natural timeline navigation without interfering with cursor movement shortcuts
+- **Evolution**: Changed from Cmd+arrows in v1.6.2 due to user feedback about typing conflicts
 - **Alternative Considered**: Arrow keys only (rejected due to editor conflicts)
 
 ### **Dynamic Window Titles** ✅ CHOSEN
@@ -164,6 +165,11 @@
 **Attempted**: Initial keyboard navigation with wrapping
 **Problem**: User reported confusing direction and unwanted looping
 **Solution**: Fixed direction mapping and removed wrap-around behaviour
+
+### **Cmd+Arrow Navigation Shortcuts** ❌ REJECTED
+**Attempted**: Cmd+Up/Down/Left/Right for note navigation
+**Problem**: Conflicted with standard text editing shortcuts (Cmd+Left/Right for cursor to start/end of line)
+**Solution**: Changed to Option+arrows in v1.6.2 to preserve normal typing workflow
 
 ### **Comprehensive Issue Templates** ❌ REJECTED
 **Attempted**: Detailed GitHub forms with multiple required fields

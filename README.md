@@ -2,7 +2,7 @@
 
 A minimalist, text-driven note-taking application for Mac that stays always-on-top and focuses on quick note capture with actionable items and connections.
 
-> **Current Status**: Full-featured v1.5 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, complete audience filtering, **keyboard navigation**, and **dynamic note timestamps**.
+> **Current Status**: Full-featured v1.6.2 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, complete audience filtering, **improved keyboard navigation**, and **dynamic note timestamps**.
 
 ## Features
 
@@ -27,7 +27,8 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **Smart autocomplete**: Recent suggestions for `#groups` and `@audience` from last 2 weeks
 - **Auto-save**: Automatically saves and updates existing notes after 1 second
 - **Tab indentation**: Tab/Shift-Tab for bullet point indentation
-- **Keyboard navigation**: `Cmd+Up` (newer notes) and `Cmd+Down` (older notes) to navigate between notes
+- **Keyboard navigation**: `Option+Up` (newer notes) and `Option+Down` (older notes) to navigate between notes
+- **Navigation with actions**: `Option+Left` (next with actions) and `Option+Right` (previous with actions)
 - **Dynamic window title**: Shows note creation date/time in format "Tue 26 Aug 14:31"
 - **Delete current note**: Right-click system tray → "Delete Current Note" with confirmation dialog
 
@@ -123,13 +124,13 @@ npm run test:all      # Run all tests including integration
 - **Testing**: Jest with comprehensive unit test coverage (49.57% FileStorage coverage)
 - **IPC**: Electron IPC for file operations, search, and menu structure
 
-## Recent Updates (v1.4.0)
+## Recent Updates (v1.6.2)
 
-- **Intelligent Audience Filtering**: "With..." menu only shows people with open actions
+- **Improved Navigation UX**: Changed shortcuts from `Cmd+arrows` to `Option+arrows` to avoid conflicts with text editing
+- **Better Typing Experience**: `Cmd+Left/Right` now work normally for cursor movement without triggering navigation
 - **Enhanced Test Coverage**: 52 comprehensive tests covering core functionality
-- **Improved Menu Logic**: Two-layer filtering for cleaner, action-focused menus
-- **Better Error Handling**: Comprehensive edge case coverage and resilience
-- **Code Quality**: Removed debug statements, improved TypeScript coverage
+- **Code Cleanup**: Removed 827 lines of unused code in v1.6.1
+- **Stable Release**: All tests passing with improved user experience
 
 ## Contributing
 

@@ -417,7 +417,7 @@ const App: React.FC = () => {
             monaco.editor.setTheme('notes-theme')
             
             // Add navigation commands
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow, async () => {
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.DownArrow, async () => {
               console.log('Cmd+Down pressed - navigating to previous note')
               try {
                 if (!currentNoteIdRef.current) {
@@ -439,7 +439,7 @@ const App: React.FC = () => {
               }
             })
 
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, async () => {
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.UpArrow, async () => {
               console.log('Cmd+Up pressed - navigating to next note')
               try {
                 if (!currentNoteIdRef.current) {
@@ -461,7 +461,7 @@ const App: React.FC = () => {
               }
             })
 
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.LeftArrow , async () => {
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow , async () => {
               console.log('Cmd+Left pressed - navigating to next note with action items')
               try {
                 if (!currentNoteIdRef.current) {
@@ -483,7 +483,7 @@ const App: React.FC = () => {
               }
             })
 
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.RightArrow, async () => {
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, async () => {
               console.log('Cmd+Right pressed - navigating to previous note with action items')
               try {
                 if (!currentNoteIdRef.current) {

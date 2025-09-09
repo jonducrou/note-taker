@@ -572,7 +572,15 @@ app.whenReady().then(async () => {
   await updateDockBadge()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    // Dock icon click: show/hide window (same as tray left-click)
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide()
+      } else {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    } else {
       createWindow()
     }
   })

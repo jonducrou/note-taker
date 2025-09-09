@@ -17,6 +17,13 @@ A minimalist, always-on-top note-taking application for Mac built with Electron 
 - **Smart but simple**: Understands structure without complex UI
 - **Fast**: Keyboard-driven with 250ms auto-save
 
+### Electron Architecture Principles
+- **Clear Process Separation**: Main process handles all file operations, system integration, and business logic
+- **Renderer Responsibility**: UI rendering, user interactions, and simple IPC communication only
+- **No File Operations in Renderer**: All FileStorage access must be through the main process via IPC
+- **Minimal IPC Surface**: Keep communication between processes simple and focused
+- **Main Process as Single Source of Truth**: Badge counts, completion tracking, and data aggregation happen in main process
+
 ### Note Format
 ```markdown
 #Product @audience:Sarah,DevTeam
@@ -51,7 +58,7 @@ src/
 - ✅ Autocomplete for groups and audience members
 - ✅ Auto-save with markdown file generation
 - ✅ Text command system (/today, /recent, /search:, etc.)
-- ✅ System tray integration with completion badge
+- ✅ System tray integration with automatic completion badge
 - ✅ Cross-note completion tracking and aggregation
 - ✅ Dynamic context menu with left-click/right-click separation
 - ✅ SVG-based tray icon with automatic PNG conversion

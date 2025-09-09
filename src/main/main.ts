@@ -379,6 +379,18 @@ function updateTrayBadge(count: number) {
   // The menu will be rebuilt on next right-click, so no explicit refresh needed here
 }
 
+async function updateDockBadge() {
+  try {
+    const notesWithIncompleteItems = await fileStorage.getOpenNotesFromLastMonth()
+    const totalCount = notesWithIncompleteItems.reduce((sum, note) => {
+      return sum + fileStorage.countIncompleteItems(note.content)
+    }, 0)
+    updateTrayBadge(totalCount)
+  } catch (error) {
+    console.error('Failed to update dock badge:', error)
+  }
+}
+
 function createMenu() {
   const template = [
     {
@@ -430,6 +442,8 @@ ipcMain.handle('save-note', async (_event, content: string, group?: string, audi
   const result = await fileStorage.saveNote(content, group, audience)
   // Refresh tray menu to reflect new note
   await refreshTrayMenu()
+  // Update dock badge with current incomplete count
+  await updateDockBadge()
   return result
 })
 
@@ -469,10 +483,6 @@ ipcMain.handle('get-recent-audience-suggestions', async (_event, prefix?: string
   return await fileStorage.getRecentAudienceSuggestions(prefix)
 })
 
-ipcMain.handle('update-badge', async (_event, count: number) => {
-  updateTrayBadge(count)
-  return { success: true }
-})
 
 ipcMain.handle('create-new-note', async () => {
   // Signal to create new note - just return success for now
@@ -497,6 +507,8 @@ ipcMain.handle('update-existing-note', async (_event, noteId: string, content: s
     await fileStorage.updateExistingNote(noteId, content)
     // Refresh tray menu to reflect updated note
     await refreshTrayMenu()
+    // Update dock badge with current incomplete count
+    await updateDockBadge()
     return { success: true }
   } catch (error) {
     console.error('Failed to update existing note:', error)
@@ -542,6 +554,8 @@ ipcMain.handle('delete-note', async (_event, noteId: string) => {
     if (success) {
       // Refresh tray menu to remove deleted note
       await createTray()
+      // Update dock badge with current incomplete count
+      await updateDockBadge()
     }
     return { success }
   } catch (error) {
@@ -554,6 +568,8 @@ app.whenReady().then(async () => {
   createMenu()
   await createTray()
   createWindow()
+  // Set initial dock badge count
+  await updateDockBadge()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -154,6 +154,27 @@
 - **Benefit**: Authentic communication style
 - **Alternative Considered**: US English (rejected for consistency)
 
+## ⚡ Electron Architecture Lessons
+
+### **Renderer Process File Operations** ❌ ARCHITECTURAL VIOLATION → ✅ FIXED
+**Problem**: Badge counting logic in App.tsx making IPC calls to load all notes violates Electron process separation
+**Why Wrong**: 
+- Renderer should only handle UI, not business logic
+- Creates performance issues with large datasets
+- Blurs responsibility boundaries between processes
+- Makes testing and debugging more complex
+**Solution Applied**: Created `updateDockBadge()` function in main process using existing FileStorage methods
+- Reused `getOpenNotesFromLastMonth()` and `countIncompleteItems()` 
+- Added automatic triggers to save/update/delete handlers
+- Removed manual IPC badge system entirely
+**Lesson**: Strict process separation is essential for maintainable Electron apps
+
+### **Complex IPC Communication** ❌ REJECTED
+**Attempted**: Detailed data passing between main and renderer for badge calculations
+**Problem**: Created tight coupling and performance overhead
+**Solution**: Keep IPC surface minimal - simple triggers and results only
+**Principle**: Main process owns data, renderer owns presentation
+
 ## 🔄 What Didn't Work - Lessons Learned
 
 ### **Initial Complex UI Approach** ❌ REJECTED

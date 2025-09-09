@@ -46,9 +46,6 @@ const electronAPI = {
     return ipcRenderer.invoke('get-recent-audience-suggestions', prefix)
   },
   
-  updateBadge: (count: number): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('update-badge', count)
-  },
   
   createNewNote: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('create-new-note')

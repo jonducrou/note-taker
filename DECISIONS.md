@@ -214,6 +214,21 @@
 - **Transcript**: Complete session with word count and confidence
 - **Alternative Considered**: Single file (rejected as less flexible)
 
+### **ts-audio-transcriber Library Update to v1.1.1** ✅ CHOSEN (v2.0.0)
+**Why**: Critical race condition fix for multi-note reliability
+- **Problem**: v1.1.0 had race condition when stop() called during processing, preventing sessionTranscript emission
+- **Impact**: First note's full transcript lost when creating second note, snippets stopped working
+- **Solution**: Library developer released v1.1.1 with proper async event handling
+- **Alternative Considered**: 2-second delay workaround (rejected after library fix available)
+- **Lesson**: External library fixes preferred over workarounds when available
+
+### **25-Second Grace Period** ✅ CHOSEN (v2.0.0)
+**Why**: More responsive privacy controls than original 90 seconds
+- **Rationale**: 25 seconds sufficient for quick note navigation without being intrusive
+- **Benefit**: Faster response to user hiding window or switching contexts
+- **Alternative Considered**: 90 seconds (rejected as too long for privacy-focused users)
+- **Future Consideration**: May make this user-configurable if requested
+
 ## 🔄 What Didn't Work - Lessons Learned
 
 ### **Zoom-Based Recording Triggers** ❌ REJECTED

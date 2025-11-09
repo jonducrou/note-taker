@@ -55,12 +55,16 @@ note-taker/
 8. ✅ Multiple successful releases with proper versioning
 9. ✅ Integrated test-driven development workflow
 10. ✅ Added navigation boundary handling (no wrapping)
-11. ✅ **Latest**: Code quality improvements - reduced lint warnings from 79 to 73
-12. ✅ **Latest**: Fixed all TypeScript errors in test files with proper type assertions
-13. ✅ **Latest**: Maintained 100% test pass rate through quality improvements
-14. ✅ **Latest**: Implemented complete manual note deletion with seamless UX
-15. ✅ **Latest**: Enhanced "With..." menu to show all notes instead of only incomplete actions
-16. ✅ **Latest**: Added auto-update infrastructure (ready for code signing)
+11. ✅ Code quality improvements - reduced lint warnings from 79 to 73
+12. ✅ Fixed all TypeScript errors in test files with proper type assertions
+13. ✅ Maintained 100% test pass rate through quality improvements
+14. ✅ Implemented complete manual note deletion with seamless UX
+15. ✅ Enhanced "With..." menu to show all notes instead of only incomplete actions
+16. ✅ Added auto-update infrastructure (ready for code signing)
+17. ✅ **v2.0.0**: Fixed audio transcription race conditions for reliable multi-note support
+18. ✅ **v2.0.0**: Updated ts-audio-transcriber to v1.1.1 with critical fixes
+19. ✅ **v2.0.0**: Created comprehensive CHANGELOG.md documenting version history
+20. ✅ **v2.0.0**: Reduced grace period to 25 seconds for more responsive privacy controls
 
 ## 🧪 Testing Infrastructure
 - **Framework**: Jest with TypeScript support
@@ -111,13 +115,14 @@ The Note Taker app is mature, thoroughly tested, and ready for production use:
 - SVG-based tray icons with PNG fallback generation
 
 ## 📋 Current Status
-- **Version**: 1.5.0 (Latest)
-- **Stability**: Production-ready
+- **Version**: 2.0.0 (Latest)
+- **Stability**: Production-ready with enhanced audio transcription reliability
 - **Testing**: Comprehensive coverage
-- **Documentation**: Complete and up-to-date
+- **Documentation**: Complete and up-to-date with CHANGELOG
 - **Distribution**: Multiple release packages available
 - **Issues**: GitHub templates simplified for community engagement
 - **Architecture**: Well-documented decisions and lessons learned
+- **Audio Transcription**: Reliable multi-note support with race condition fixes
 
 ## 🎯 Ready for Production Use
 The app successfully delivers on all original requirements with additional enhancements. Code quality is high, testing is comprehensive, and user experience is polished. Ready for wider distribution and community contributions.

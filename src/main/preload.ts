@@ -113,6 +113,19 @@ const electronAPI = {
 
   transcriptionGetContent: (noteId: string): Promise<string | null> => {
     return ipcRenderer.invoke('transcription-get-content', noteId)
+  },
+
+  transcriptionGetModelStatus: (): Promise<{
+    ready: boolean
+    progress: number
+    error: string | null
+  }> => {
+    return ipcRenderer.invoke('transcription-get-model-status')
+  },
+
+  onModelDownloadProgress: (callback: (progress: number) => void) => {
+    ipcRenderer.on('model-download-progress', (_event, progress) => callback(progress))
+    return () => ipcRenderer.removeAllListeners('model-download-progress')
   }
 }
 

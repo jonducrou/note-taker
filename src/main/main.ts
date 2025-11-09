@@ -667,6 +667,19 @@ ipcMain.handle('transcription-get-content', async (_event, noteId: string) => {
   }
 })
 
+ipcMain.handle('transcription-get-model-status', async () => {
+  try {
+    return transcriptionManager.getModelStatus()
+  } catch (error) {
+    console.error('Failed to get model status:', error)
+    return {
+      ready: false,
+      progress: 0,
+      error: 'Failed to check status'
+    }
+  }
+})
+
 // Permissions IPC handlers
 ipcMain.handle('permissions-check', async () => {
   try {
@@ -700,10 +713,17 @@ ipcMain.handle('permissions-request-screen-recording', async () => {
 })
 
 app.whenReady().then(async () => {
-  // Initialize transcription manager
+  // Initialize transcription manager (non-blocking)
   try {
+    // Set up progress callback to send updates to renderer
+    transcriptionManager.setModelProgressCallback((progress) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('model-download-progress', progress)
+      }
+    })
+
     await transcriptionManager.initialize()
-    console.log('TranscriptionManager initialized')
+    console.log('TranscriptionManager initialized (model may still be downloading)')
   } catch (error) {
     console.error('Failed to initialize TranscriptionManager:', error)
   }

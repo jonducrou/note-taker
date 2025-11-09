@@ -2,7 +2,7 @@
 
 A minimalist, text-driven note-taking application for Mac that stays always-on-top and focuses on quick note capture with actionable items and connections.
 
-> **Current Status**: Full-featured v1.7.0 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, complete audience filtering, improved keyboard navigation, dynamic note timestamps, and **automatic audio transcription**.
+> **Current Status**: Full-featured v2.0.0 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organisation, complete audience filtering, improved keyboard navigation, dynamic note timestamps, and **reliable automatic audio transcription**.
 
 ## Features
 
@@ -40,16 +40,17 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **System tray**: Right-click menu with completion counts and quick access
 - **Local timezone**: All date groupings use local time (not UTC)
 
-### 🎙️ **Audio Transcription** (NEW in v1.7.0)
+### 🎙️ **Audio Transcription** (v2.0.0 - Enhanced Reliability)
 - **Automatic recording**: Starts when creating a new note, visible red dot indicator
 - **Newest-note tracking**: Only the most recently created note records
-- **90-second grace period**: Navigate away for up to 90 seconds without stopping recording
+- **25-second grace period**: Navigate away for up to 25 seconds without stopping recording
 - **Local speech recognition**: Uses Vosk engine (offline, no cloud)
 - **Automatic model download**: Speech recognition model (~40MB) downloads automatically on first use
 - **Real-time snippets**: 5-second interval transcription chunks
 - **Complete transcript**: Full session transcript with word count and confidence
 - **Files created**: `.snippet` and `.transcription` files alongside each note
-- **Privacy-focused**: Recording pauses with 90-second grace when window hides
+- **Privacy-focused**: Recording pauses with grace period when window hides
+- **Reliable multi-note support**: Fixed race conditions for consistent transcription across multiple recordings
 
 ## File Structure
 
@@ -137,10 +138,16 @@ npm run test:all      # Run all tests including integration
 
 ## Recent Updates
 
+### v2.0.0 - Enhanced Audio Transcription Reliability
+- **Fixed Race Conditions**: Resolved issue where first note's full transcript was lost when creating second note
+- **Multi-Note Support**: Snippets and transcripts now work reliably across multiple recording sessions
+- **Updated Library**: ts-audio-transcriber v1.1.1 with critical stop/start sequence fixes
+- **Faster Grace Period**: Reduced from 90 seconds to 25 seconds for more responsive privacy controls
+- **Improved Logging**: Enhanced debugging capabilities for transcription pipeline
+
 ### v1.7.0 - Audio Transcription
 - **Automatic Recording**: New notes trigger automatic audio transcription
 - **Newest-Note Strategy**: Only the most recent note records to simplify UX
-- **90-Second Grace Period**: Navigate away without stopping recording
 - **Vosk Speech Recognition**: Local, offline transcription with real-time snippets
 - **Model Download-on-Demand**: Speech recognition model (~40MB) downloads automatically on first use
 - **Visual Indicator**: Pulsing red dot shows active recording

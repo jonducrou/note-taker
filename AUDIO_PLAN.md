@@ -1,9 +1,9 @@
 # Audio Transcription Feature - Implementation Plan
 
-## ✨ Current Implementation (v2 - Simplified Strategy)
+## ✨ Current Implementation (v2.0.0 - Production Ready)
 
 ### 🎯 Overview
-Automatic audio recording and transcription using **newest-note tracking** with a **90-second grace period** for note navigation. Uses `ts-audio-transcriber` library with Vosk speech recognition for local, real-time transcription.
+Automatic audio recording and transcription using **newest-note tracking** with a **25-second grace period** for note navigation. Uses `ts-audio-transcriber` library (v1.1.1) with Vosk speech recognition for local, real-time transcription.
 
 ### 📋 Core Strategy
 
@@ -13,14 +13,14 @@ Automatic audio recording and transcription using **newest-note tracking** with 
 - Recording automatically begins without user interaction
 
 **Grace Period Behaviour**:
-- **Navigating away** from newest note → Start 90-second timer
-- **Returning** to newest note within 90 seconds → Cancel timer, continue recording
+- **Navigating away** from newest note → Start 25-second timer
+- **Returning** to newest note within 25 seconds → Cancel timer, continue recording
 - **Timer expires** → Permanently stop recording for that note
-- **Window hide** → Start 90-second grace period
+- **Window hide** → Start 25-second grace period
 - **Window show** (on newest note) → Cancel grace period
 
 **Permanent Stop Conditions**:
-- 90-second grace period expires
+- 25-second grace period expires
 - New note is created (stops old recording, starts new one)
 - Once stopped, that note's recording **never restarts**
 
@@ -33,7 +33,7 @@ class TranscriptionManager {
   private newestNoteId: string | null
   private finishedRecordings: Set<string>
   private graceTimer: NodeJS.Timeout | null
-  private readonly GRACE_PERIOD_MS = 90000 // 90 seconds
+  private readonly GRACE_PERIOD_MS = 25000 // 25 seconds (v2.0.0)
 
   // Lifecycle methods
   async onNoteCreated(noteId: string)      // Auto-start for new notes
@@ -95,25 +95,29 @@ Confidence: 95.8%
 - Communication: IPC messaging between processes
 - Audio Library: ts-audio-transcriber (external npm package)
 
-### ✅ Implementation Status
+### ✅ Implementation Status (v2.0.0)
 
 **Completed**:
 - [x] TranscriptionManager with newest-note tracking
-- [x] 90-second grace period timer implementation
+- [x] 25-second grace period timer implementation
 - [x] Integration with note creation/switching in main.ts
 - [x] Window hide/show hooks with grace period
-- [x] Audio worker process with ts-audio-transcriber
+- [x] Audio worker process with ts-audio-transcriber v1.1.1
 - [x] Real-time snippet generation (5-second intervals)
 - [x] Complete session transcript on recording stop
 - [x] File path management (snippets + transcription files)
 - [x] Removed Zoom detection integration
+- [x] Fixed race condition in rapid stop/start sequences
+- [x] Resolved missing sessionTranscript events
+- [x] Multi-note recording reliability verified
 
-**Testing Required**:
-- [ ] Build and test complete recording lifecycle
-- [ ] Verify grace period timing accuracy
-- [ ] Test note switching scenarios
-- [ ] Validate window hide/show behaviour
-- [ ] Confirm file outputs are correctly written
+**Testing Completed**:
+- [x] Build and test complete recording lifecycle
+- [x] Verify grace period timing accuracy
+- [x] Test note switching scenarios (multiple notes work correctly)
+- [x] Validate window hide/show behaviour
+- [x] Confirm file outputs are correctly written
+- [x] Model download-on-demand functionality verified
 
 ---
 

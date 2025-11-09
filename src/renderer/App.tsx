@@ -9,6 +9,8 @@ const App: React.FC = () => {
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
+  const [modelReady, setModelReady] = useState(false)
+  const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
   
@@ -371,36 +373,6 @@ const App: React.FC = () => {
     }
   }
 
-  // Transcription handlers
-  const handleToggleRecording = async () => {
-    try {
-      if (isRecording) {
-        // Stop recording
-        const result = await (window as any).electronAPI?.transcriptionStop()
-        if (result?.success) {
-          setIsRecording(false)
-          console.log('Transcription stopped')
-        }
-      } else {
-        // Start recording - need a note ID
-        if (!currentNoteIdRef.current) {
-          console.warn('Cannot start recording without a note')
-          return
-        }
-
-        const result = await (window as any).electronAPI?.transcriptionStart(currentNoteIdRef.current)
-        if (result?.success) {
-          setIsRecording(true)
-          console.log('Transcription started for note:', currentNoteIdRef.current)
-        } else {
-          console.error('Failed to start transcription:', result?.error)
-        }
-      }
-    } catch (error) {
-      console.error('Error toggling recording:', error)
-    }
-  }
-
   // Poll transcription status
   useEffect(() => {
     const pollStatus = async () => {
@@ -421,6 +393,43 @@ const App: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
+  // Poll model status and listen for download progress
+  useEffect(() => {
+    const pollModelStatus = async () => {
+      try {
+        const status = await (window as any).electronAPI?.transcriptionGetModelStatus()
+        if (status) {
+          setModelReady(status.ready)
+          setModelDownloadProgress(status.progress)
+        }
+      } catch (error) {
+        console.error('Failed to poll model status:', error)
+      }
+    }
+
+    // Poll every 2 seconds
+    const interval = setInterval(pollModelStatus, 2000)
+
+    // Initial poll
+    pollModelStatus()
+
+    // Listen for progress updates
+    let cleanup: (() => void) | undefined
+    if ((window as any).electronAPI) {
+      cleanup = (window as any).electronAPI.onModelDownloadProgress((progress: number) => {
+        setModelDownloadProgress(progress)
+        if (progress === 100) {
+          setModelReady(true)
+        }
+      })
+    }
+
+    return () => {
+      clearInterval(interval)
+      if (cleanup) cleanup()
+    }
+  }, [])
+
   if (isLoading) {
     return (
       <div className="app">
@@ -434,6 +443,7 @@ const App: React.FC = () => {
       <div className="header">
         <div className="header-left">
           <span>{currentNoteId ? formatNoteDate(currentNoteId) : 'Note Taker'}</span>
+          {/* v2 - no manual button */}
           {isRecording && (
             <span
               style={{
@@ -448,25 +458,21 @@ const App: React.FC = () => {
               title="Recording audio"
             />
           )}
+          {!modelReady && modelDownloadProgress < 100 && (
+            <span
+              style={{
+                marginLeft: '8px',
+                fontSize: '10px',
+                color: '#666',
+                fontStyle: 'italic'
+              }}
+              title={`Downloading speech model... ${modelDownloadProgress}%`}
+            >
+              ⬇ {modelDownloadProgress}%
+            </span>
+          )}
         </div>
         <div className="header-right">
-          <button
-            onClick={handleToggleRecording}
-            disabled={!currentNoteId}
-            style={{
-              background: isRecording ? 'rgba(255, 59, 48, 0.2)' : 'rgba(0, 0, 0, 0.1)',
-              border: isRecording ? '1px solid rgba(255, 59, 48, 0.5)' : '1px solid rgba(0, 0, 0, 0.2)',
-              borderRadius: '4px',
-              padding: '4px 12px',
-              fontSize: '12px',
-              cursor: currentNoteId ? 'pointer' : 'not-allowed',
-              color: isRecording ? '#FF3B30' : '#333',
-              marginRight: '8px',
-              opacity: currentNoteId ? 1 : 0.5
-            }}
-          >
-            {isRecording ? '⏹ Stop' : '⏺ Record'}
-          </button>
           <button
             onClick={handleNewNote}
             style={{

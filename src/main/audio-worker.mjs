@@ -17,10 +17,17 @@ const __dirname = dirname(__filename);
 
 let transcriber = null;
 let currentConfig = null;
+let currentSessionId = null;
 
 // Send message back to main process
 function sendMessage(type, data) {
-  process.send({ type, data });
+  console.log(`[Worker] sendMessage called: type=${type}, sessionId=${data?.sessionId || 'none'}`);
+  try {
+    process.send({ type, data });
+    console.log(`[Worker] Message sent successfully: ${type}`);
+  } catch (error) {
+    console.error(`[Worker] Failed to send message:`, error);
+  }
 }
 
 // Initialize transcriber
@@ -61,22 +68,31 @@ async function initialize(config) {
 
     // Setup event handlers
     transcriber.on('snippet', (event) => {
-      sendMessage('snippet', event);
+      // Add current sessionId to snippet events for routing
+      sendMessage('snippet', { ...event, sessionId: currentSessionId });
     });
 
     transcriber.on('sessionTranscript', (event) => {
-      sendMessage('sessionTranscript', event);
+      // Add current sessionId to sessionTranscript events for routing
+      sendMessage('sessionTranscript', { ...event, sessionId: currentSessionId });
     });
 
     transcriber.on('recordingStarted', (metadata) => {
+      // Capture the sessionId for this recording session
+      currentSessionId = metadata.sessionId;
+      console.log('[Worker] Session started:', currentSessionId);
       sendMessage('recordingStarted', metadata);
     });
 
     transcriber.on('recordingStopped', (metadata) => {
+      console.log('[Worker] Session stopped:', currentSessionId);
       sendMessage('recordingStopped', metadata);
+      // Keep sessionId for any late-arriving events
     });
 
     transcriber.on('error', (error) => {
+      console.error('[Worker] Transcriber error event:', error.message);
+      console.error('[Worker] Error stack:', error.stack);
       sendMessage('error', { message: error.message, stack: error.stack });
     });
 
@@ -131,16 +147,23 @@ function getStatus() {
 
 // Handle messages from main process
 process.on('message', async (msg) => {
+  console.log(`[Worker] Received IPC message: type=${msg.type}, noteId=${msg.noteId || 'none'}`);
   try {
     switch (msg.type) {
       case 'initialize':
+        console.log('[Worker] Calling initialize...');
         await initialize(msg.config);
+        console.log('[Worker] Initialize completed');
         break;
       case 'start':
+        console.log('[Worker] Calling start for noteId:', msg.noteId);
         await start(msg.noteId);
+        console.log('[Worker] Start completed');
         break;
       case 'stop':
+        console.log('[Worker] Calling stop...');
         await stop();
+        console.log('[Worker] Stop completed');
         break;
       case 'getStatus':
         getStatus();
@@ -149,6 +172,7 @@ process.on('message', async (msg) => {
         console.error('Unknown message type:', msg.type);
     }
   } catch (error) {
+    console.error(`[Worker] Error handling message ${msg.type}:`, error);
     sendMessage('error', { message: error.message, stack: error.stack });
   }
 });

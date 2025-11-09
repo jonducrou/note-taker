@@ -74,7 +74,7 @@ const electronAPI = {
   deleteNote: (noteId: string): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('delete-note', noteId)
   },
-  
+
   // Listen for note loading messages from menu
   onLoadNote: (callback: (noteId: string) => void) => {
     ipcRenderer.on('load-note', (_event, noteId) => callback(noteId))
@@ -85,6 +85,34 @@ const electronAPI = {
   onDeleteCurrentNote: (callback: () => void) => {
     ipcRenderer.on('delete-current-note', () => callback())
     return () => ipcRenderer.removeAllListeners('delete-current-note')
+  },
+
+  // Transcription API
+  transcriptionStart: (noteId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('transcription-start', noteId)
+  },
+
+  transcriptionStop: (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('transcription-stop')
+  },
+
+  transcriptionGetStatus: (): Promise<{
+    isRecording: boolean
+    isPaused: boolean
+    sessionId?: string
+    noteId?: string
+    startTime?: number
+    duration?: number
+  }> => {
+    return ipcRenderer.invoke('transcription-get-status')
+  },
+
+  transcriptionHasTranscription: (noteId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('transcription-has-transcription', noteId)
+  },
+
+  transcriptionGetContent: (noteId: string): Promise<string | null> => {
+    return ipcRenderer.invoke('transcription-get-content', noteId)
   }
 }
 

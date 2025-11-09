@@ -175,7 +175,56 @@
 **Solution**: Keep IPC surface minimal - simple triggers and results only
 **Principle**: Main process owns data, renderer owns presentation
 
+## 🎙️ Audio Transcription Decisions (v1.7.0)
+
+### **ts-audio-transcriber Library** ✅ CHOSEN
+**Why**: Avoids maintaining complex audio code in the main repo
+- **Benefit**: Focused on note-taking features, audio handled by specialized library
+- **Implementation**: Separate Node.js worker process with Vosk speech recognition
+- **Alternative Considered**: Building custom audio pipeline (rejected as out of scope)
+
+### **Newest-Note Recording Strategy** ✅ CHOSEN
+**Why**: Simplest user mental model without external triggers
+- **Behaviour**: New note creation → auto-start recording
+- **Rationale**: One active recording at a time prevents confusion
+- **Alternative Considered**: Zoom-based triggers (rejected as too complex)
+
+### **90-Second Grace Period** ✅ CHOSEN
+**Why**: Allows brief navigation without stopping recording
+- **Implementation**: Timer starts on note switch/window hide, cancels on return
+- **Benefit**: Natural workflow doesn't interrupt recording for quick actions
+- **Alternative Considered**: Immediate stop (rejected as disruptive)
+
+### **Local Vosk Model** ✅ CHOSEN
+**Why**: Offline, private, no API costs
+- **Model**: vosk-model-en-us-0.22 (English)
+- **Confidence Threshold**: 0.3 (balances accuracy and completeness)
+- **Alternative Considered**: Cloud-based Whisper API (rejected for privacy/cost)
+
+### **Model Download-on-Demand** ✅ CHOSEN
+**Why**: Keeps repository and distributable size minimal
+- **Implementation**: ModelDownloader service checks and downloads model on first initialization
+- **Benefit**: ~40MB model not stored in git or DMG, downloaded only when needed
+- **Location**: Downloaded to `models/vosk-model-en-us-0.22` relative to app
+- **Alternative Considered**: Bundling model (rejected due to size)
+
+### **Dual Output Files (.snippet + .transcription)** ✅ CHOSEN
+**Why**: Different use cases for real-time vs final transcript
+- **Snippets**: 5-second intervals for monitoring progress
+- **Transcript**: Complete session with word count and confidence
+- **Alternative Considered**: Single file (rejected as less flexible)
+
 ## 🔄 What Didn't Work - Lessons Learned
+
+### **Zoom-Based Recording Triggers** ❌ REJECTED
+**Attempted**: Automatically start/stop recording based on Zoom meeting detection
+**Problem**:
+- Complex process monitoring with edge cases
+- Required BlackHole virtual audio driver for system audio
+- Whisper.cpp packaging issues with Electron's ASAR
+- Too many dependencies and failure points
+**Solution**: Simplified to newest-note strategy with manual control via note creation
+**Lesson**: External triggers add complexity; align with existing user workflows instead
 
 ### **Initial Complex UI Approach** ❌ REJECTED
 **Attempted**: Traditional form-based interface with separate fields

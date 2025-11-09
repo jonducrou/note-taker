@@ -8,7 +8,7 @@
     "dev:main": "NODE_ENV=development tsc -p src/main/tsconfig.json && NODE_ENV=development electron dist/main/main/main.js",
     "dev:renderer": "vite",
     "build": "npm run build:main && npm run build:renderer",
-    "build:main": "tsc -p src/main/tsconfig.json",
+    "build:main": "tsc -p src/main/tsconfig.json && cp src/main/audio-worker.mjs dist/main/main/",
     "build:renderer": "vite build",
     "dist": "electron-builder",
     "lint": "eslint src --ext .ts,.tsx",
@@ -16,7 +16,8 @@
     "test": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts",
     "test:all": "jest",
     "test:watch": "jest --watch FileStorage.test.ts basic.test.ts",
-    "test:coverage": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts --coverage"
+    "test:coverage": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts --coverage",
+    "postinstall": "patch-package"
   },
   "keywords": [
     "notes",
@@ -41,6 +42,8 @@
     "eslint-plugin-react-hooks": "^4.0.0",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
+    "patch-package": "^8.0.1",
+    "postinstall-postinstall": "^2.1.0",
     "ts-jest": "^29.4.1",
     "typescript": "^5.0.0",
     "vite": "^4.0.0"
@@ -48,22 +51,37 @@
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@types/js-yaml": "^4.0.9",
+    "@types/unzipper": "^0.10.11",
     "date-fns": "^2.30.0",
     "gray-matter": "^4.0.0",
     "js-yaml": "^4.1.0",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "ts-audio-transcriber": "github:jonducrou/ts_audio_transcriber#v1.0.3",
+    "unzipper": "^0.12.3"
+  },
+  "overrides": {
+    "macos-version": "5.2.1"
   },
   "build": {
     "appId": "com.notetaker.app",
     "productName": "Note Taker",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/vosk-koffi/**/*",
+      "**/node_modules/screencapturekit/**/*",
+      "**/node_modules/node-record-lpcm16/**/*",
+      "dist/main/main/audio-worker.mjs"
+    ],
     "directories": {
       "output": "release",
       "buildResources": "assets"
     },
     "files": [
       "dist/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/ts-audio-transcriber/models",
+      "!node_modules/whisper-node/**/*"
     ],
     "extraResources": [
       {

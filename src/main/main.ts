@@ -2,6 +2,8 @@ import { app, BrowserWindow, Menu, dialog, Tray, ipcMain } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
 import { FileStorage } from '../storage/FileStorage'
+import { TranscriptionManager } from './services/TranscriptionManager'
+import { PermissionsService } from './services/PermissionsService'
 
 // Get version from app instead of requiring package.json
 const appVersion = app.getVersion()
@@ -9,7 +11,10 @@ const appVersion = app.getVersion()
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const fileStorage = new FileStorage()
+const transcriptionManager = new TranscriptionManager()
+const permissionsService = new PermissionsService()
 let isQuitting = false
+let currentNoteId: string | null = null // Track current note for transcription lifecycle
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -124,9 +129,21 @@ function createWindow() {
     mainWindow.on('closed', () => {
       mainWindow = null
     })
-    
+
+    // Privacy control: Start grace period when window is hidden
+    mainWindow.on('hide', () => {
+      transcriptionManager.onWindowHidden()
+    })
+
+    // Cancel grace period when window is shown (if on newest note)
+    mainWindow.on('show', () => {
+      if (currentNoteId) {
+        transcriptionManager.onWindowShown(currentNoteId)
+      }
+    })
+
     // Remove auto-hide on blur - window should stay visible
-    
+
     return mainWindow
   } catch (error) {
     console.error('Error creating window:', error)
@@ -440,6 +457,21 @@ function createMenu() {
 // IPC handlers for file operations
 ipcMain.handle('save-note', async (_event, content: string, group?: string, audience?: string[]) => {
   const result = await fileStorage.saveNote(content, group, audience)
+
+  // Track current note ID and start recording for new notes
+  const noteId = result.id
+  const isNewNote = currentNoteId !== noteId
+  currentNoteId = noteId
+
+  if (isNewNote) {
+    // Auto-start recording for newest note
+    try {
+      await transcriptionManager.onNoteCreated(noteId)
+    } catch (error) {
+      console.error('[Main] Failed to start recording for new note:', error)
+    }
+  }
+
   // Refresh tray menu to reflect new note
   await refreshTrayMenu()
   // Update dock badge with current incomplete count
@@ -495,6 +527,22 @@ ipcMain.handle('load-note-by-id', async (_event, noteId: string) => {
   try {
     const notes = await fileStorage.loadNotes()
     const note = notes.find(n => n.id === noteId)
+
+    if (note) {
+      // Update current note tracking and handle grace period
+      const previousNoteId = currentNoteId
+      currentNoteId = noteId
+
+      if (previousNoteId !== noteId) {
+        // Switched to a different note - trigger grace period logic
+        try {
+          await transcriptionManager.onNoteSwitched(noteId)
+        } catch (error) {
+          console.error('[Main] Failed to handle note switch:', error)
+        }
+      }
+    }
+
     return note || null
   } catch (error) {
     console.error('Failed to load note by ID:', error)
@@ -552,6 +600,10 @@ ipcMain.handle('delete-note', async (_event, noteId: string) => {
   try {
     const success = await fileStorage.deleteNote(noteId)
     if (success) {
+      // Delete associated transcription if it exists
+      await transcriptionManager.deleteTranscription(noteId).catch(err => {
+        console.error('Failed to delete transcription:', err)
+      })
       // Refresh tray menu to remove deleted note
       await createTray()
       // Update dock badge with current incomplete count
@@ -564,7 +616,98 @@ ipcMain.handle('delete-note', async (_event, noteId: string) => {
   }
 })
 
+// Transcription IPC handlers
+ipcMain.handle('transcription-start', async (_event, noteId: string) => {
+  try {
+    await transcriptionManager.start(noteId)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Failed to start transcription:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('transcription-stop', async () => {
+  try {
+    await transcriptionManager.stop()
+    return { success: true }
+  } catch (error: any) {
+    console.error('Failed to stop transcription:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('transcription-get-status', async () => {
+  try {
+    return transcriptionManager.getStatus()
+  } catch (error) {
+    console.error('Failed to get transcription status:', error)
+    return {
+      isRecording: false,
+      isPaused: false
+    }
+  }
+})
+
+ipcMain.handle('transcription-has-transcription', async (_event, noteId: string) => {
+  try {
+    return await transcriptionManager.hasTranscription(noteId)
+  } catch (error) {
+    console.error('Failed to check transcription:', error)
+    return false
+  }
+})
+
+ipcMain.handle('transcription-get-content', async (_event, noteId: string) => {
+  try {
+    return await transcriptionManager.getTranscription(noteId)
+  } catch (error) {
+    console.error('Failed to get transcription content:', error)
+    return null
+  }
+})
+
+// Permissions IPC handlers
+ipcMain.handle('permissions-check', async () => {
+  try {
+    return await permissionsService.checkPermissions()
+  } catch (error) {
+    console.error('Failed to check permissions:', error)
+    return {
+      microphone: 'not-determined',
+      screenRecording: 'not-determined'
+    }
+  }
+})
+
+ipcMain.handle('permissions-request-microphone', async () => {
+  try {
+    return await permissionsService.requestMicrophonePermission()
+  } catch (error) {
+    console.error('Failed to request microphone permission:', error)
+    return false
+  }
+})
+
+ipcMain.handle('permissions-request-screen-recording', async () => {
+  try {
+    await permissionsService.requestScreenRecordingPermission()
+    return true
+  } catch (error) {
+    console.error('Failed to request screen recording permission:', error)
+    return false
+  }
+})
+
 app.whenReady().then(async () => {
+  // Initialize transcription manager
+  try {
+    await transcriptionManager.initialize()
+    console.log('TranscriptionManager initialized')
+  } catch (error) {
+    console.error('Failed to initialize TranscriptionManager:', error)
+  }
+
   createMenu()
   await createTray()
   createWindow()
@@ -593,9 +736,16 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   isQuitting = true
   if (tray) {
     tray.destroy()
+  }
+  // Cleanup services
+  try {
+    await transcriptionManager.cleanup()
+    console.log('Services cleaned up successfully')
+  } catch (error) {
+    console.error('Failed to cleanup services:', error)
   }
 })

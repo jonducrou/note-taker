@@ -1,0 +1,99 @@
+diff --git a/node_modules/ts-audio-transcriber/models/.gitkeep b/node_modules/ts-audio-transcriber/models/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/ts-audio-transcriber/package.json.bak b/node_modules/ts-audio-transcriber/package.json.bak
+new file mode 100644
+index 0000000..f6725c1
+--- /dev/null
++++ b/node_modules/ts-audio-transcriber/package.json.bak
+@@ -0,0 +1,90 @@
++{
++  "name": "ts-audio-transcriber",
++  "version": "1.0.3",
++  "description": "TypeScript library for real-time audio transcription on macOS with microphone and system audio support using open source speech recognition",
++  "main": "dist/index.js",
++  "types": "dist/index.d.ts",
++  "files": [
++    "dist/"
++  ],
++  "scripts": {
++    "build": "tsc",
++    "dev": "tsc --watch",
++    "clean": "rm -rf dist",
++    "prepare": "npm run build",
++    "prepublishOnly": "npm run clean && npm run build",
++    "electron": "electron demo/src/main.js",
++    "electron:dev": "npm run build && electron demo/src/main.js",
++    "demo": "npm run electron:dev",
++    "pack:demo": "npm run build && electron-builder --dir",
++    "dist:demo": "npm run build && electron-builder",
++    "test:audio": "node test-audio-capture.js"
++  },
++  "keywords": [
++    "typescript",
++    "audio",
++    "transcription",
++    "speech-to-text",
++    "macos",
++    "real-time",
++    "streaming",
++    "open-source",
++    "offline"
++  ],
++  "author": "",
++  "license": "MIT",
++  "devDependencies": {
++    "@types/electron": "^1.4.38",
++    "@types/node": "^20.0.0",
++    "@types/vosk": "^0.3.1",
++    "electron": "^38.1.2",
++    "electron-builder": "^26.0.12",
++    "electron-rebuild": "^3.2.9",
++    "typescript": "^5.0.0"
++  },
++  "dependencies": {
++    "node-record-lpcm16": "^1.0.1",
++    "screencapturekit": "^1.0.22",
++    "vosk-koffi": "^1.1.1",
++    "whisper-node": "^1.1.1"
++  },
++  "overrides": {
++    "macos-version": "5.2.1"
++  },
++  "engines": {
++    "node": ">=16.0.0"
++  },
++  "os": [
++    "darwin"
++  ],
++  "repository": {
++    "type": "git",
++    "url": ""
++  },
++  "build": {
++    "appId": "com.example.ts-audio-transcriber-demo",
++    "productName": "TS Audio Transcriber Demo",
++    "directories": {
++      "output": "dist-electron"
++    },
++    "files": [
++      "demo/src/**/*",
++      "dist/**/*",
++      "models/**/*",
++      "node_modules/**/*"
++    ],
++    "asar": false,
++    "mac": {
++      "category": "public.app-category.developer-tools",
++      "target": [
++        {
++          "target": "dir",
++          "arch": [
++            "x64",
++            "arm64"
++          ]
++        }
++      ]
++    }
++  }
++}

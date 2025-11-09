@@ -65,3 +65,6 @@ jspm_packages/
 # Test files (if any)
 test-results/
 coverage/
+
+# Vosk speech recognition models (download on demand)
+models/

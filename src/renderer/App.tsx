@@ -8,6 +8,7 @@ const App: React.FC = () => {
   const [content, setContent] = useState('')
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRecording, setIsRecording] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
   
@@ -312,9 +313,9 @@ const App: React.FC = () => {
   const deleteCurrentNote = async () => {
     console.log('deleteCurrentNote called, currentNoteId:', currentNoteId)
     console.log('deleteCurrentNote called, currentNoteIdRef.current:', currentNoteIdRef.current)
-    
+
     const noteIdToDelete = currentNoteIdRef.current || currentNoteId
-    
+
     if (!noteIdToDelete) {
       console.log('No current note to delete - both currentNoteId and ref are null/undefined')
       return
@@ -323,15 +324,15 @@ const App: React.FC = () => {
     try {
       console.log('Deleting note:', noteIdToDelete)
       const result = await (window as any).electronAPI?.deleteNote(noteIdToDelete)
-      
+
       if (result?.success) {
         console.log('Note deleted successfully')
-        
+
         // Try to load any available note after deletion
         try {
           console.log('Looking for any available note to load...')
           const recentNote = await (window as any).electronAPI?.loadRecentNote()
-          
+
           if (recentNote) {
             console.log('Loading most recent note:', recentNote.id)
             setContent(recentNote.content)
@@ -370,6 +371,56 @@ const App: React.FC = () => {
     }
   }
 
+  // Transcription handlers
+  const handleToggleRecording = async () => {
+    try {
+      if (isRecording) {
+        // Stop recording
+        const result = await (window as any).electronAPI?.transcriptionStop()
+        if (result?.success) {
+          setIsRecording(false)
+          console.log('Transcription stopped')
+        }
+      } else {
+        // Start recording - need a note ID
+        if (!currentNoteIdRef.current) {
+          console.warn('Cannot start recording without a note')
+          return
+        }
+
+        const result = await (window as any).electronAPI?.transcriptionStart(currentNoteIdRef.current)
+        if (result?.success) {
+          setIsRecording(true)
+          console.log('Transcription started for note:', currentNoteIdRef.current)
+        } else {
+          console.error('Failed to start transcription:', result?.error)
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling recording:', error)
+    }
+  }
+
+  // Poll transcription status
+  useEffect(() => {
+    const pollStatus = async () => {
+      try {
+        const status = await (window as any).electronAPI?.transcriptionGetStatus()
+        setIsRecording(status?.isRecording || false)
+      } catch (error) {
+        console.error('Failed to poll transcription status:', error)
+      }
+    }
+
+    // Poll every 2 seconds
+    const interval = setInterval(pollStatus, 2000)
+
+    // Initial poll
+    pollStatus()
+
+    return () => clearInterval(interval)
+  }, [])
+
   if (isLoading) {
     return (
       <div className="app">
@@ -383,9 +434,40 @@ const App: React.FC = () => {
       <div className="header">
         <div className="header-left">
           <span>{currentNoteId ? formatNoteDate(currentNoteId) : 'Note Taker'}</span>
+          {isRecording && (
+            <span
+              style={{
+                marginLeft: '8px',
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#FF3B30',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}
+              title="Recording audio"
+            />
+          )}
         </div>
         <div className="header-right">
-          <button 
+          <button
+            onClick={handleToggleRecording}
+            disabled={!currentNoteId}
+            style={{
+              background: isRecording ? 'rgba(255, 59, 48, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+              border: isRecording ? '1px solid rgba(255, 59, 48, 0.5)' : '1px solid rgba(0, 0, 0, 0.2)',
+              borderRadius: '4px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              cursor: currentNoteId ? 'pointer' : 'not-allowed',
+              color: isRecording ? '#FF3B30' : '#333',
+              marginRight: '8px',
+              opacity: currentNoteId ? 1 : 0.5
+            }}
+          >
+            {isRecording ? '⏹ Stop' : '⏺ Record'}
+          </button>
+          <button
             onClick={handleNewNote}
             style={{
               background: 'rgba(0, 0, 0, 0.1)',

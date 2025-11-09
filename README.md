@@ -2,7 +2,7 @@
 
 A minimalist, text-driven note-taking application for Mac that stays always-on-top and focuses on quick note capture with actionable items and connections.
 
-> **Current Status**: Full-featured v1.6.2 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, complete audience filtering, **improved keyboard navigation**, and **dynamic note timestamps**.
+> **Current Status**: Full-featured v1.7.0 with Monaco editor, smart autocomplete, syntax highlighting, system tray integration, comprehensive note organization, complete audience filtering, improved keyboard navigation, dynamic note timestamps, and **automatic audio transcription**.
 
 ## Features
 
@@ -39,6 +39,17 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **Comprehensive filtering**: Shows all audience members with notes from last month
 - **System tray**: Right-click menu with completion counts and quick access
 - **Local timezone**: All date groupings use local time (not UTC)
+
+### 🎙️ **Audio Transcription** (NEW in v1.7.0)
+- **Automatic recording**: Starts when creating a new note, visible red dot indicator
+- **Newest-note tracking**: Only the most recently created note records
+- **90-second grace period**: Navigate away for up to 90 seconds without stopping recording
+- **Local speech recognition**: Uses Vosk engine (offline, no cloud)
+- **Automatic model download**: Speech recognition model (~40MB) downloads automatically on first use
+- **Real-time snippets**: 5-second interval transcription chunks
+- **Complete transcript**: Full session transcript with word count and confidence
+- **Files created**: `.snippet` and `.transcription` files alongside each note
+- **Privacy-focused**: Recording pauses with 90-second grace when window hides
 
 ## File Structure
 
@@ -124,8 +135,18 @@ npm run test:all      # Run all tests including integration
 - **Testing**: Jest with comprehensive unit test coverage (49.57% FileStorage coverage)
 - **IPC**: Electron IPC for file operations, search, and menu structure
 
-## Recent Updates (v1.6.2)
+## Recent Updates
 
+### v1.7.0 - Audio Transcription
+- **Automatic Recording**: New notes trigger automatic audio transcription
+- **Newest-Note Strategy**: Only the most recent note records to simplify UX
+- **90-Second Grace Period**: Navigate away without stopping recording
+- **Vosk Speech Recognition**: Local, offline transcription with real-time snippets
+- **Model Download-on-Demand**: Speech recognition model (~40MB) downloads automatically on first use
+- **Visual Indicator**: Pulsing red dot shows active recording
+- **Privacy Controls**: Window hide/show triggers grace period (not immediate stop)
+
+### v1.6.2 - Navigation Improvements
 - **Improved Navigation UX**: Changed shortcuts from `Cmd+arrows` to `Option+arrows` to avoid conflicts with text editing
 - **Better Typing Experience**: `Cmd+Left/Right` now work normally for cursor movement without triggering navigation
 - **Enhanced Test Coverage**: 52 comprehensive tests covering core functionality

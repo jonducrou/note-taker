@@ -1,4 +1,7 @@
-import { fork, spawn, ChildProcess } from 'child_process';
+import { fork, spawn, ChildProcess, exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -48,6 +51,18 @@ export class TranscriptionManager {
       modelPath: '', // Will be set by ModelDownloader during initialize()
       outputDir: path.join(os.homedir(), 'Documents', 'Notes', '.recordings')
     };
+  }
+
+  /**
+   * Check if sox (Sound eXchange) is installed on the system
+   */
+  static async checkSoxInstalled(): Promise<boolean> {
+    try {
+      await execAsync('which sox');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async initialize(): Promise<void> {
@@ -333,6 +348,12 @@ export class TranscriptionManager {
     if (this.status.isRecording) {
       console.warn('[TranscriptionManager] Already recording');
       return;
+    }
+
+    // Check if sox is installed before starting
+    const soxInstalled = await TranscriptionManager.checkSoxInstalled();
+    if (!soxInstalled) {
+      throw new Error('SOX_NOT_INSTALLED');
     }
 
     // Clear any previous file paths before starting new recording

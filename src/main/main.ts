@@ -199,6 +199,9 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
     const priorWeekNotes = await fileStorage.getNotesForPriorWeek()
     const openNotes = await fileStorage.getOpenNotesFromLastMonth()
     const audienceGroupedNotes = await fileStorage.getNotesGroupedByAudienceFromLastMonth()
+
+    // Get transcription status for recording menu item
+    const transcriptionStatus = transcriptionManager.getStatus()
     
     
     const buildSubmenuItems = (notes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -284,9 +287,67 @@ async function buildPermanentTrayMenu(): Promise<any[]> { // eslint-disable-line
               message: 'Are you sure you want to delete the current note?',
               detail: 'This action cannot be undone.'
             })
-            
+
             if (result.response === 1) { // Delete button clicked
               mainWindow.webContents.send('delete-current-note')
+            }
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: transcriptionStatus.isRecording ? 'Stop Recording' : 'Start Recording',
+        enabled: mainWindow !== null && mainWindow.isVisible(),
+        click: async () => {
+          try {
+            if (transcriptionStatus.isRecording) {
+              // Stop recording
+              await transcriptionManager.stop()
+            } else {
+              // Start recording
+              if (!currentNoteId) {
+                if (mainWindow) {
+                  await dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: 'No Note Available',
+                    message: 'Please create or open a note before starting recording.'
+                  })
+                }
+                return
+              }
+
+              const permissions = await permissionsService.checkPermissions()
+              if (permissions.microphone !== 'granted') {
+                if (mainWindow) {
+                  await dialog.showMessageBox(mainWindow, {
+                    type: 'warning',
+                    title: 'Microphone Permission Required',
+                    message: 'Microphone access is required for recording.',
+                    detail: 'Please grant microphone permission in System Preferences.'
+                  })
+                }
+                return
+              }
+              await transcriptionManager.start(currentNoteId)
+            }
+            // Refresh menu to update recording state
+            await refreshTrayMenu()
+          } catch (error: any) {
+            console.error('Failed to toggle recording:', error)
+
+            // Show user-friendly dialog for sox not installed
+            if (error.message === 'SOX_NOT_INSTALLED') {
+              if (mainWindow) {
+                await dialog.showMessageBox(mainWindow, {
+                  type: 'error',
+                  title: 'Audio Recording Unavailable',
+                  message: 'Sox (Sound eXchange) is required for audio recording but is not installed.',
+                  detail: 'To enable audio transcription, please install sox using Homebrew:\n\nbrew install sox\n\nThen restart the application.',
+                  buttons: ['OK']
+                })
+              }
+            } else if (mainWindow) {
+              dialog.showErrorBox('Recording Error', `Failed to ${transcriptionStatus.isRecording ? 'stop' : 'start'} recording: ${error}`)
             }
           }
         }
@@ -493,6 +554,12 @@ ipcMain.handle('load-recent-note', async () => {
     console.log('IPC: Loading most recent note...')
     const recentNote = await fileStorage.loadMostRecentNote()
     console.log('IPC: Recent note loaded:', recentNote ? recentNote.id : 'null')
+
+    // Track current note ID for transcription
+    if (recentNote) {
+      currentNoteId = recentNote.id
+    }
+
     return recentNote
   } catch (error) {
     console.error('IPC: Failed to load recent note:', error)
@@ -558,9 +625,8 @@ ipcMain.handle('load-note-by-id', async (_event, noteId: string) => {
 ipcMain.handle('update-existing-note', async (_event, noteId: string, content: string) => {
   try {
     await fileStorage.updateExistingNote(noteId, content)
-    // Refresh tray menu to reflect updated note
-    await refreshTrayMenu()
-    // Update dock badge with current incomplete count
+    // Don't refresh menu on content updates - only when notes are added/deleted
+    // Badge count uses cached data, so it's fast and updates every 5 seconds max
     await updateDockBadge()
     return { success: true }
   } catch (error) {
@@ -610,7 +676,7 @@ ipcMain.handle('delete-note', async (_event, noteId: string) => {
         console.error('Failed to delete transcription:', err)
       })
       // Refresh tray menu to remove deleted note
-      await createTray()
+      await refreshTrayMenu()
       // Update dock badge with current incomplete count
       await updateDockBadge()
     }
@@ -635,6 +701,21 @@ ipcMain.handle('transcription-start', async (_event, noteId: string) => {
     return { success: true }
   } catch (error: any) {
     console.error('Failed to start transcription:', error)
+
+    // Show user-friendly dialog for sox not installed
+    if (error.message === 'SOX_NOT_INSTALLED') {
+      if (mainWindow) {
+        dialog.showMessageBox(mainWindow, {
+          type: 'error',
+          title: 'Audio Recording Unavailable',
+          message: 'Sox (Sound eXchange) is required for audio recording but is not installed.',
+          detail: 'To enable audio transcription, please install sox using Homebrew:\n\nbrew install sox\n\nThen restart the application.',
+          buttons: ['OK']
+        })
+      }
+      return { success: false, error: 'Sox not installed' }
+    }
+
     return { success: false, error: error.message }
   }
 })

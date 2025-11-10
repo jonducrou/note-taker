@@ -20,9 +20,17 @@ export interface Note {
 
 export class FileStorage {
   private notesDir: string
+  private notesCache: Note[] | null = null
+  private cacheTimestamp: number = 0
+  private readonly CACHE_TTL = 5000 // Cache for 5 seconds
 
   constructor() {
     this.notesDir = join(homedir(), 'Documents', 'Notes')
+  }
+
+  invalidateCache(): void {
+    this.notesCache = null
+    this.cacheTimestamp = 0
   }
 
   private getLocalDateString(date: Date = new Date()): string {
@@ -145,9 +153,12 @@ export class FileStorage {
 
       const formattedContent = this.formatNoteContent(content, metadata)
       const filePath = join(this.notesDir, filename)
-      
+
       await fs.writeFile(filePath, formattedContent, 'utf-8')
-      
+
+      // Invalidate cache since we added a new note
+      this.invalidateCache()
+
       return { id: filename, success: true }
     } catch (error) {
       console.error('Failed to save note:', error)
@@ -184,19 +195,25 @@ export class FileStorage {
   }
 
   async loadNotes(): Promise<Note[]> {
+    // Return cached notes if still valid
+    const now = Date.now()
+    if (this.notesCache && (now - this.cacheTimestamp) < this.CACHE_TTL) {
+      return this.notesCache
+    }
+
     try {
       await this.ensureNotesDirectory()
       const files = await fs.readdir(this.notesDir)
       const markdownFiles = files.filter(file => file.endsWith('.md'))
-      
+
       const notes: Note[] = []
-      
+
       for (const filename of markdownFiles) {
         try {
           const filePath = join(this.notesDir, filename)
           const fileContent = await fs.readFile(filePath, 'utf-8')
           const { metadata, content } = this.parseNoteContent(fileContent)
-          
+
           notes.push({
             id: filename,
             filename,
@@ -207,14 +224,18 @@ export class FileStorage {
           console.error(`Failed to load note ${filename}:`, error)
         }
       }
-      
+
       // Sort by filename date (newest first) instead of file modification time
       notes.sort((a, b) => {
         const dateA = this.extractDateFromFilename(a.filename)
         const dateB = this.extractDateFromFilename(b.filename)
         return dateB.getTime() - dateA.getTime()
       })
-      
+
+      // Cache the results
+      this.notesCache = notes
+      this.cacheTimestamp = now
+
       return notes
     } catch (error) {
       console.error('Failed to load notes:', error)
@@ -636,6 +657,10 @@ export class FileStorage {
       console.log('Attempting to delete file at path:', notePath)
       await fs.unlink(notePath)
       console.log('Successfully deleted note:', id)
+
+      // Invalidate cache since we removed a note
+      this.invalidateCache()
+
       return true
     } catch (error) {
       console.error(`Failed to delete note ${id}:`, error)

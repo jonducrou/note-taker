@@ -52,6 +52,13 @@ A minimalist, text-driven note-taking application for Mac that stays always-on-t
 - **Privacy-focused**: Recording pauses with grace period when window hides
 - **Reliable multi-note support**: Fixed race conditions for consistent transcription across multiple recordings
 
+### 🔒 **Permissions**
+- **Microphone Access**: Required for audio transcription feature
+- **First Launch**: macOS will prompt for microphone permission when you start the app
+- **Permission Dialog**: You'll see "Note Taker uses your microphone to automatically transcribe audio into your notes using Vosk speech recognition"
+- **Change Permissions**: Go to System Preferences → Security & Privacy → Privacy → Microphone to enable/disable
+- **Without Permission**: App still works normally but audio transcription will be disabled
+
 ## File Structure
 
 Notes are stored as markdown files in `~/Documents/Notes/` with:

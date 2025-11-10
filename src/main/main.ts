@@ -464,9 +464,14 @@ ipcMain.handle('save-note', async (_event, content: string, group?: string, audi
   currentNoteId = noteId
 
   if (isNewNote) {
-    // Auto-start recording for newest note
+    // Auto-start recording for newest note (only if permissions granted)
     try {
-      await transcriptionManager.onNoteCreated(noteId)
+      const permissions = await permissionsService.checkPermissions()
+      if (permissions.microphone === 'granted') {
+        await transcriptionManager.onNoteCreated(noteId)
+      } else {
+        console.log('[Main] Skipping auto-start recording - microphone permission not granted')
+      }
     } catch (error) {
       console.error('[Main] Failed to start recording for new note:', error)
     }
@@ -619,6 +624,13 @@ ipcMain.handle('delete-note', async (_event, noteId: string) => {
 // Transcription IPC handlers
 ipcMain.handle('transcription-start', async (_event, noteId: string) => {
   try {
+    // Check microphone permission before starting
+    const permissions = await permissionsService.checkPermissions()
+    if (permissions.microphone !== 'granted') {
+      console.warn('Microphone permission not granted, cannot start transcription')
+      return { success: false, error: 'Microphone permission not granted' }
+    }
+
     await transcriptionManager.start(noteId)
     return { success: true }
   } catch (error: any) {
@@ -713,6 +725,24 @@ ipcMain.handle('permissions-request-screen-recording', async () => {
 })
 
 app.whenReady().then(async () => {
+  // Check and request permissions before initializing transcription
+  try {
+    console.log('Checking microphone permissions...')
+    const permissions = await permissionsService.checkPermissions()
+
+    if (permissions.microphone !== 'granted') {
+      console.log('Microphone permission not granted, requesting...')
+      const granted = await permissionsService.requestMicrophonePermission()
+      if (!granted) {
+        console.warn('Microphone permission denied - transcription will not be available')
+      }
+    } else {
+      console.log('Microphone permission already granted')
+    }
+  } catch (error) {
+    console.error('Failed to check/request permissions:', error)
+  }
+
   // Initialize transcription manager (non-blocking)
   try {
     // Set up progress callback to send updates to renderer

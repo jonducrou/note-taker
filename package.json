@@ -1,11 +1,11 @@
 {
   "name": "note-taker",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Minimalist always-on-top note taking app",
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
-    "dev:main": "NODE_ENV=development tsc -p src/main/tsconfig.json && NODE_ENV=development electron dist/main/main/main.js",
+    "dev:main": "NODE_ENV=development tsc -p src/main/tsconfig.json && cp src/main/audio-worker.mjs dist/main/main/ && NODE_ENV=development electron dist/main/main/main.js",
     "dev:renderer": "vite",
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p src/main/tsconfig.json && cp src/main/audio-worker.mjs dist/main/main/",
@@ -92,7 +92,13 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
-      "icon": "app-icon.icns"
+      "icon": "app-icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Note Taker uses your microphone to automatically transcribe audio into your notes using Vosk speech recognition."
+      }
     }
   }
 }

@@ -37,11 +37,11 @@ async function initialize(config) {
 
     transcriber = new AudioTranscriber({
       enableMicrophone: config.enableMicrophone,
-      enableSystemAudio: config.enableSystemAudio,
+      enableSystemAudio: true,  // Enable system audio capture
 
       snippets: {
         enabled: true,
-        intervalSeconds: 5,
+        intervalSeconds: 15,
         engine: 'vosk',
         confidenceThreshold: 0.3,
         engineOptions: {

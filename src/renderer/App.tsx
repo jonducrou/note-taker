@@ -9,6 +9,8 @@ const App: React.FC = () => {
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(false)
+  const [isProcessingTranscript, setIsProcessingTranscript] = useState(false)
   const [modelReady, setModelReady] = useState(false)
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -379,6 +381,8 @@ const App: React.FC = () => {
       try {
         const status = await (window as any).electronAPI?.transcriptionGetStatus()
         setIsRecording(status?.isRecording || false)
+        setIsInitializing(status?.isInitializing || false)
+        setIsProcessingTranscript(status?.isProcessingTranscript || false)
       } catch (error) {
         console.error('Failed to poll transcription status:', error)
       }
@@ -444,6 +448,20 @@ const App: React.FC = () => {
         <div className="header-left">
           <span>{currentNoteId ? formatNoteDate(currentNoteId) : 'Note Taker'}</span>
           {/* v2 - no manual button */}
+          {isInitializing && (
+            <span
+              style={{
+                marginLeft: '8px',
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#FFCC00',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}
+              title="Initializing audio capture..."
+            />
+          )}
           {isRecording && (
             <span
               style={{
@@ -456,6 +474,20 @@ const App: React.FC = () => {
                 animation: 'pulse 1.5s ease-in-out infinite'
               }}
               title="Recording audio"
+            />
+          )}
+          {isProcessingTranscript && (
+            <span
+              style={{
+                marginLeft: '8px',
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#007AFF',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}
+              title="Processing session transcript..."
             />
           )}
           {!modelReady && modelDownloadProgress < 100 && (

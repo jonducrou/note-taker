@@ -17,6 +17,8 @@ export class TranscriptionManager {
   private worker: ChildProcess | null = null;
   private status: TranscriptionStatus = {
     isRecording: false,
+    isInitializing: false,
+    isProcessingTranscript: false,
     isPaused: false
   };
   private currentNoteId: string | null = null;
@@ -254,11 +256,20 @@ export class TranscriptionManager {
         break;
       case 'recordingStopped':
         console.log('[TranscriptionManager] Recording stopped:', msg.data.duration);
+        // Session transcript will be generated after recording stops
+        this.status.isProcessingTranscript = true;
         break;
       case 'error':
         console.error('[TranscriptionManager] Worker error:', msg.data.message);
+        // Clear initializing state on error
+        if (this.status.isInitializing) {
+          this.status.isInitializing = false;
+        }
         break;
       case 'started':
+        // Audio capture has actually started - update status
+        this.status.isRecording = true;
+        this.status.isInitializing = false;
         console.log('[TranscriptionManager] Transcription started successfully');
         break;
       case 'stopped':
@@ -333,6 +344,9 @@ export class TranscriptionManager {
     await fs.appendFile(transcriptionFilePath, content, 'utf-8');
     console.log('[TranscriptionManager] Saved complete transcript for note:', noteId, '-', event.wordCount, 'words');
 
+    // Clear processing flag when transcript is complete
+    this.status.isProcessingTranscript = false;
+
     // Clean up session mapping after handling transcript
     if (event.sessionId && this.sessionFilePaths.has(event.sessionId)) {
       this.sessionFilePaths.delete(event.sessionId);
@@ -345,8 +359,8 @@ export class TranscriptionManager {
       throw new Error('Worker not initialized');
     }
 
-    if (this.status.isRecording) {
-      console.warn('[TranscriptionManager] Already recording');
+    if (this.status.isRecording || this.status.isInitializing) {
+      console.warn('[TranscriptionManager] Already recording or initializing');
       return;
     }
 
@@ -365,14 +379,11 @@ export class TranscriptionManager {
     await fs.writeFile(this.snippetFilePath, '', 'utf-8');
     await fs.writeFile(this.transcriptionFilePath, '', 'utf-8');
 
-    // Send start command to worker
-    this.worker.send({
-      type: 'start',
-      noteId
-    });
-
+    // Set initializing state while worker starts up audio capture
     this.status = {
-      isRecording: true,
+      isRecording: false,
+      isInitializing: true,
+      isProcessingTranscript: false,
       isPaused: false,
       sessionId: undefined,
       noteId,
@@ -380,11 +391,17 @@ export class TranscriptionManager {
       duration: 0
     };
 
-    console.log('[TranscriptionManager] Started transcription for note:', noteId);
+    // Send start command to worker
+    this.worker.send({
+      type: 'start',
+      noteId
+    });
+
+    console.log('[TranscriptionManager] Initializing transcription for note:', noteId);
   }
 
   async stop(): Promise<void> {
-    if (!this.worker || !this.status.isRecording) {
+    if (!this.worker || (!this.status.isRecording && !this.status.isInitializing)) {
       console.warn('[TranscriptionManager] Not recording');
       return;
     }
@@ -398,6 +415,8 @@ export class TranscriptionManager {
 
     this.status = {
       isRecording: false,
+      isInitializing: false,
+      isProcessingTranscript: this.status.isProcessingTranscript, // Keep processing state
       isPaused: false,
       duration
     };

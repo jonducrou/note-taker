@@ -35,6 +35,8 @@ export interface NoteMetadata {
 // Transcription types
 export interface TranscriptionStatus {
   isRecording: boolean
+  isInitializing: boolean
+  isProcessingTranscript: boolean
   isPaused: boolean
   sessionId?: string
   noteId?: string

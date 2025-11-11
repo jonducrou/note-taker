@@ -4,7 +4,7 @@
 console.log('[Worker] Starting, about to import AudioTranscriber...');
 console.log('[Worker] Process:', { pid: process.pid, execPath: process.execPath, cwd: process.cwd() });
 
-import { AudioTranscriber } from 'ts-audio-transcriber';
+import { AudioTranscriber } from 'ts-audio-transcriber/dist/index.js';
 
 console.log('[Worker] AudioTranscriber imported successfully');
 import { fileURLToPath } from 'url';

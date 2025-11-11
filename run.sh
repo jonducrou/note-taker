@@ -25,8 +25,16 @@ run_dev() {
 }
 
 run_prod() {
+    echo "🛑 Stopping any running Note Taker instances..."
+    killall "Note Taker" 2>/dev/null || true
+    sleep 1
+
     echo "🧹 Cleaning previous builds..."
     rm -rf dist/ release/
+
+    echo "🗑️  Cleaning build caches..."
+    rm -rf node_modules/.cache 2>/dev/null || true
+    rm -rf .vite 2>/dev/null || true
 
     echo "🔨 Building latest version..."
     npm run build

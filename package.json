@@ -68,6 +68,7 @@
     "productName": "Note Taker",
     "asar": true,
     "asarUnpack": [
+      "**/node_modules/ts-audio-transcriber/**/*",
       "**/node_modules/vosk-koffi/**/*",
       "**/node_modules/screencapturekit/**/*",
       "**/node_modules/node-record-lpcm16/**/*",

@@ -1,6 +1,6 @@
 {
   "name": "note-taker",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Minimalist always-on-top note taking app",
   "main": "dist/main/main/main.js",
   "scripts": {

@@ -29,6 +29,11 @@ run_prod() {
     killall "Note Taker" 2>/dev/null || true
     sleep 1
 
+    echo "💿 Unmounting any mounted DMG volumes..."
+    hdiutil info | grep -i "note taker" | grep "/Volumes/" | awk -F'\t' '{print $NF}' | while read volume; do
+        hdiutil detach "$volume" 2>/dev/null || true
+    done
+
     echo "🧹 Cleaning previous builds..."
     rm -rf dist/ release/
 
@@ -43,6 +48,21 @@ run_prod() {
     npm run dist
 
     local app_path="./release/mac-arm64/Note Taker.app"
+    local dmg_path="./release/Note Taker-$(node -p "require('./package.json').version")-arm64.dmg"
+
+    # If DMG creation failed with electron-builder, try manual creation
+    if [ -d "$app_path" ] && [ ! -f "$dmg_path" ]; then
+        echo "💿 electron-builder DMG failed, creating DMG manually..."
+        cd release
+        hdiutil create -volname "Note Taker" -srcfolder "mac-arm64/Note Taker.app" -ov -format UDZO "$(basename "$dmg_path")" 2>&1 | grep -E "created:|error"
+        cd ..
+
+        if [ -f "$dmg_path" ]; then
+            echo "✅ DMG created successfully: $dmg_path"
+        else
+            echo "⚠️  DMG creation failed, but .app bundle is available"
+        fi
+    fi
 
     if [ -d "$app_path" ]; then
         echo "📱 Launching Note Taker production app..."

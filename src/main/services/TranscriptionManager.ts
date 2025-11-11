@@ -620,14 +620,41 @@ export class TranscriptionManager {
   }
 
   async cleanup(): Promise<void> {
+    console.log('[TranscriptionManager] Cleanup called');
+
     if (this.status.isRecording) {
+      console.log('[TranscriptionManager] Stopping recording before cleanup');
       await this.stop();
     }
 
     if (this.worker) {
+      console.log('[TranscriptionManager] Killing worker process');
+
+      // Wait for worker to exit
+      const exitPromise = new Promise<void>((resolve) => {
+        this.worker?.once('exit', (code) => {
+          console.log('[TranscriptionManager] Worker exited with code:', code);
+          resolve();
+        });
+
+        // Set a timeout in case worker doesn't exit
+        setTimeout(() => {
+          console.warn('[TranscriptionManager] Worker exit timeout, forcing cleanup');
+          resolve();
+        }, 5000);
+      });
+
+      // Send SIGTERM to worker
       this.worker.kill('SIGTERM');
+
+      // Wait for exit
+      await exitPromise;
+
       this.worker = null;
       this.workerReady = false;
+      console.log('[TranscriptionManager] Cleanup complete');
+    } else {
+      console.log('[TranscriptionManager] No worker to clean up');
     }
   }
 }

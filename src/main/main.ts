@@ -880,16 +880,30 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', async () => {
-  isQuitting = true
-  if (tray) {
-    tray.destroy()
-  }
-  // Cleanup services
-  try {
-    await transcriptionManager.cleanup()
-    console.log('Services cleaned up successfully')
-  } catch (error) {
-    console.error('Failed to cleanup services:', error)
+// Track whether cleanup has been performed
+let cleanupDone = false
+
+app.on('before-quit', async (event) => {
+  if (!cleanupDone) {
+    // Prevent quit until cleanup is complete
+    event.preventDefault()
+
+    isQuitting = true
+    if (tray) {
+      tray.destroy()
+    }
+
+    // Cleanup services
+    console.log('[Main] Starting cleanup...')
+    try {
+      await transcriptionManager.cleanup()
+      console.log('[Main] Services cleaned up successfully')
+    } catch (error) {
+      console.error('[Main] Failed to cleanup services:', error)
+    }
+
+    cleanupDone = true
+    console.log('[Main] Cleanup complete, quitting app')
+    app.quit() // Now quit for real
   }
 })

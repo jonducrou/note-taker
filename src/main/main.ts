@@ -475,6 +475,19 @@ function createMenu() {
       label: 'Note Taker',
       submenu: [
         {
+          label: 'About Note Taker',
+          click: () => {
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'About Note Taker',
+              message: `Note Taker v${appVersion}`,
+              detail: 'A minimalist, always-on-top note-taking application for Mac.\n\nFeatures:\n• Text-first design with smart syntax highlighting\n• Audio transcription with Vosk speech recognition\n• Action items and connection tracking\n• Always available via global hotkey and system tray\n\nBuilt with Electron, React, and TypeScript.',
+              buttons: ['OK']
+            })
+          }
+        },
+        { type: 'separator' },
+        {
           label: 'Show Notes',
           accelerator: 'CmdOrCtrl+N',
           click: () => {

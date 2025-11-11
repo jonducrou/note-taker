@@ -25,14 +25,17 @@ run_dev() {
 }
 
 run_prod() {
+    echo "🧹 Cleaning previous builds..."
+    rm -rf dist/ release/
+
     echo "🔨 Building latest version..."
     npm run build
-    
+
     echo "📦 Creating distribution package..."
     npm run dist
-    
+
     local app_path="./release/mac-arm64/Note Taker.app"
-    
+
     if [ -d "$app_path" ]; then
         echo "📱 Launching Note Taker production app..."
         open "$app_path"

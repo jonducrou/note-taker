@@ -131,3 +131,12 @@
     transform: scale(1.2);
   }
 }
+
+/* Aggregated section styling */
+.aggregated-section {
+  background-color: rgba(220, 220, 220, 0.3) !important;
+}
+
+.aggregated-section-inline {
+  background-color: rgba(220, 220, 220, 0.3) !important;
+}

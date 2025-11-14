@@ -2,6 +2,7 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import * as yaml from 'js-yaml'
+import { Action, RelatedAction, RelatedConnection } from '../types'
 
 export interface NoteMetadata {
   date: string
@@ -650,10 +651,10 @@ export class FileStorage {
   async deleteNote(id: string): Promise<boolean> {
     try {
       // The id already includes .md extension, so don't add it again
-      const notePath = id.endsWith('.md') 
+      const notePath = id.endsWith('.md')
         ? join(this.notesDir, id)
         : join(this.notesDir, `${id}.md`)
-      
+
       console.log('Attempting to delete file at path:', notePath)
       await fs.unlink(notePath)
       console.log('Successfully deleted note:', id)
@@ -666,5 +667,175 @@ export class FileStorage {
       console.error(`Failed to delete note ${id}:`, error)
       return false
     }
+  }
+
+  /**
+   * Extract action items from note content
+   * @param content - The note content to parse
+   * @returns Array of Action objects
+   */
+  private parseActions(content: string): Action[] {
+    const lines = content.split('\n')
+    const actions: Action[] = []
+
+    lines.forEach((line, index) => {
+      // Match incomplete actions: []
+      const incompleteMatch = line.match(/\[\s*\]\s*(.+)/)
+      if (incompleteMatch) {
+        actions.push({
+          text: incompleteMatch[1].trim(),
+          completed: false,
+          lineNumber: index + 1
+        })
+        return
+      }
+
+      // Match completed actions: [x]
+      const completedMatch = line.match(/\[x\]\s*(.+)/)
+      if (completedMatch) {
+        actions.push({
+          text: completedMatch[1].trim(),
+          completed: true,
+          lineNumber: index + 1
+        })
+      }
+    })
+
+    return actions
+  }
+
+  /**
+   * Extract connections from note content
+   * @param content - The note content to parse
+   * @returns Array of RelatedConnection objects
+   */
+  private parseConnections(content: string): RelatedConnection[] {
+    const lines = content.split('\n')
+    const connections: RelatedConnection[] = []
+
+    lines.forEach((line, index) => {
+      // Match incomplete forward connections: ->
+      const incompleteForward = line.match(/(\w+)\s*->\s*(.+)/)
+      if (incompleteForward) {
+        connections.push({
+          subject: incompleteForward[2].trim(),
+          direction: 'right',
+          completed: false,
+          lineNumber: index + 1
+        })
+        return
+      }
+
+      // Match completed forward connections: -x>
+      const completedForward = line.match(/(\w+)\s*-[xX]>\s*(.+)/)
+      if (completedForward) {
+        connections.push({
+          subject: completedForward[2].trim(),
+          direction: 'right',
+          completed: true,
+          lineNumber: index + 1
+        })
+        return
+      }
+
+      // Match incomplete backward connections: <-
+      const incompleteBackward = line.match(/(\w+)\s*<-\s*(.+)/)
+      if (incompleteBackward) {
+        connections.push({
+          subject: incompleteBackward[2].trim(),
+          direction: 'left',
+          completed: false,
+          lineNumber: index + 1
+        })
+        return
+      }
+
+      // Match completed backward connections: <x-
+      const completedBackward = line.match(/(\w+)\s*<[xX]-\s*(.+)/)
+      if (completedBackward) {
+        connections.push({
+          subject: completedBackward[2].trim(),
+          direction: 'left',
+          completed: true,
+          lineNumber: index + 1
+        })
+      }
+    })
+
+    return connections
+  }
+
+  /**
+   * Extract title from note content (first non-empty line)
+   * @param content - The note content
+   * @returns The extracted title or a default
+   */
+  private extractTitle(content: string): string {
+    const lines = content.split('\n')
+
+    // Return first non-empty line (keep # tags intact)
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (trimmed) {
+        return trimmed.substring(0, 80) + (trimmed.length > 80 ? '...' : '')
+      }
+    }
+
+    return 'Untitled Note'
+  }
+
+  /**
+   * Get related action items from notes with matching audience members
+   * @param audience - Array of audience members to match
+   * @param days - Number of days to look back (default: 30)
+   * @returns Array of RelatedAction objects
+   */
+  async getRelatedActionItems(audience: string[], days: number = 30): Promise<RelatedAction[]> {
+    if (!audience || audience.length === 0) {
+      return []
+    }
+
+    const cutoffDate = Date.now() - (days * 24 * 60 * 60 * 1000)
+    const allNotes = await this.loadNotes()
+    const relatedActions: RelatedAction[] = []
+
+    for (const note of allNotes) {
+      // Skip notes older than the cutoff
+      const noteDate = new Date(note.metadata.created_at || note.metadata.date)
+      if (noteDate.getTime() < cutoffDate) {
+        continue
+      }
+
+      // Check if ANY audience member matches (OR logic)
+      const hasMatchingAudience = audience.some(member =>
+        note.metadata.audience?.some(noteAudience => {
+          // Clean up both sides for comparison (remove @ if present)
+          const cleanMember = member.startsWith('@') ? member.slice(1) : member
+          const cleanNoteAudience = noteAudience.startsWith('@') ? noteAudience.slice(1) : noteAudience
+          return cleanMember.toLowerCase() === cleanNoteAudience.toLowerCase()
+        })
+      )
+
+      if (!hasMatchingAudience) {
+        continue
+      }
+
+      // Extract all action items from this note
+      const actions = this.parseActions(note.content)
+      const connections = this.parseConnections(note.content)
+
+      // Only include notes that have actions or connections
+      if (actions.length > 0 || connections.length > 0) {
+        relatedActions.push({
+          noteId: note.id,
+          noteTitle: this.extractTitle(note.content),
+          noteDate: note.metadata.created_at || note.metadata.date,
+          actions,
+          connections
+        })
+      }
+    }
+
+    return relatedActions
   }
 }

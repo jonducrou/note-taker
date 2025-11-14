@@ -15,6 +15,10 @@ const App: React.FC = () => {
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
+  const previousFirstLineRef = useRef<string>('')
+  const aggregationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const editorRef = useRef<any>(null)
+  const decorationsRef = useRef<string[]>([])
   
   const formatNoteDate = (noteId: string): string => {
     try {
@@ -56,12 +60,230 @@ const App: React.FC = () => {
       console.error('Failed to update window title:', error)
     }
   }
+
+  // Extract audience members from content
+  const extractAudience = (content: string): string[] => {
+    const audience: Set<string> = new Set()
+
+    // Look for @audience: format (comma-separated)
+    const audienceMatch = content.match(/@audience:([^\n]+)/)
+    if (audienceMatch) {
+      const members = audienceMatch[1].split(',').map(m => m.trim()).filter(m => m.length > 0)
+      members.forEach(m => audience.add(m))
+    }
+
+    // Also look for standalone @ tags
+    const atMatches = content.matchAll(/@([a-zA-Z][a-zA-Z0-9_-]*)/g)
+    for (const match of atMatches) {
+      audience.add(match[1])
+    }
+
+    return Array.from(audience)
+  }
+
+  // Format aggregated content from related actions
+  const formatAggregatedContent = (relatedActions: any[]): string => {
+    if (relatedActions.length === 0) {
+      return ''
+    }
+
+    // Helper to format date as "Today", "Yesterday", or date
+    const formatDate = (dateStr: string): string => {
+      const noteDate = new Date(dateStr)
+      const today = new Date()
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+
+      const isToday = noteDate.toDateString() === today.toDateString()
+      const isYesterday = noteDate.toDateString() === yesterday.toDateString()
+
+      if (isToday) return 'Today'
+      if (isYesterday) return 'Yesterday'
+
+      // Format as "Nov 12"
+      const month = noteDate.toLocaleString('en-AU', { month: 'short' })
+      const day = noteDate.getDate()
+      return `${month} ${day}`
+    }
+
+    let formatted = '\n--------\n'
+
+    for (const related of relatedActions) {
+      const dateFormatted = formatDate(related.noteDate)
+      formatted += `${related.noteTitle} (${dateFormatted})\n`
+
+      // Add incomplete actions
+      const incompleteActions = related.actions.filter((a: any) => !a.completed)
+      for (const action of incompleteActions) {
+        formatted += `[] ${action.text}\n`
+      }
+
+      // Add incomplete connections
+      const incompleteConnections = related.connections.filter((c: any) => !c.completed)
+      for (const conn of incompleteConnections) {
+        const arrow = conn.direction === 'right' ? '->' : '<-'
+        formatted += `${conn.subject} ${arrow}\n`
+      }
+
+      formatted += '\n'
+    }
+
+    return formatted
+  }
+
+  // Update Monaco decorations for aggregated section
+  const updateAggregatedDecorations = useCallback((content: string) => {
+    if (!editorRef.current) return
+
+    const delimiterIndex = content.indexOf('--------')
+
+    if (delimiterIndex === -1) {
+      // Clear decorations if no delimiter
+      decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, [])
+      return
+    }
+
+    // Find line number where delimiter starts
+    const linesBeforeDelimiter = content.substring(0, delimiterIndex).split('\n').length
+    const totalLines = content.split('\n').length
+
+    // Apply grey background from delimiter line onwards
+    const decorations = [{
+      range: {
+        startLineNumber: linesBeforeDelimiter,
+        startColumn: 1,
+        endLineNumber: totalLines,
+        endColumn: 1
+      },
+      options: {
+        isWholeLine: true,
+        className: 'aggregated-section',
+        inlineClassName: 'aggregated-section-inline'
+      }
+    }]
+
+    decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, decorations)
+  }, [])
+
+  // Handle aggregation when cursor leaves first line or first line changes
+  const handleAggregation = useCallback(async (content: string, cursorLineNumber?: number) => {
+    const lines = content.split('\n')
+    const firstLine = lines[0] || ''
+
+    // Only trigger if cursor is NOT on first line OR if first line changed significantly
+    const isOnFirstLine = cursorLineNumber === 1
+    const firstLineChanged = firstLine !== previousFirstLineRef.current
+
+    // If user is still typing on first line, don't trigger yet
+    if (isOnFirstLine && !firstLineChanged) {
+      return
+    }
+
+    // If first line hasn't changed and we're not moving away, don't trigger
+    if (!firstLineChanged && isOnFirstLine) {
+      return
+    }
+
+    previousFirstLineRef.current = firstLine
+
+    // Extract audience from content
+    const audience = extractAudience(content)
+
+    if (audience.length === 0) {
+      // No audience, clear aggregation
+      const userContent = content.split('--------')[0]
+      if (content !== userContent) {
+        // Save cursor position
+        const editor = editorRef.current
+        const position = editor?.getPosition()
+
+        setContent(userContent)
+        updateAggregatedDecorations(userContent)
+
+        // Restore cursor position
+        if (editor && position) {
+          setTimeout(() => {
+            editor.setPosition(position)
+            editor.focus()
+          }, 0)
+        }
+      }
+      return
+    }
+
+    // Clear existing aggregation timeout
+    if (aggregationTimeoutRef.current) {
+      clearTimeout(aggregationTimeoutRef.current)
+    }
+
+    // Debounce aggregation by 500ms
+    aggregationTimeoutRef.current = setTimeout(async () => {
+      try {
+        const relatedActions = await (window as any).electronAPI?.getRelatedActions(audience, 30)
+
+        if (!relatedActions || relatedActions.length === 0) {
+          // No related actions, clear aggregation
+          const userContent = content.split('--------')[0]
+          if (content !== userContent) {
+            // Save cursor position
+            const editor = editorRef.current
+            const position = editor?.getPosition()
+
+            setContent(userContent)
+            updateAggregatedDecorations(userContent)
+
+            // Restore cursor position
+            if (editor && position) {
+              setTimeout(() => {
+                editor.setPosition(position)
+                editor.focus()
+              }, 0)
+            }
+          }
+          return
+        }
+
+        // Save cursor position before updating content
+        const editor = editorRef.current
+        const position = editor?.getPosition()
+
+        // Format aggregated content
+        const aggregatedContent = formatAggregatedContent(relatedActions)
+
+        // Get user content (everything before delimiter)
+        const userContent = content.split('--------')[0]
+
+        // Rebuild with single delimiter
+        const newContent = userContent + aggregatedContent
+
+        setContent(newContent)
+        updateAggregatedDecorations(newContent)
+
+        // Restore cursor position after content update
+        if (editor && position) {
+          setTimeout(() => {
+            editor.setPosition(position)
+            editor.focus()
+          }, 0)
+        }
+      } catch (error) {
+        console.error('Failed to get related actions:', error)
+      }
+    }, 500)
+  }, [updateAggregatedDecorations])
   
   // Keep ref in sync with state and update window title
   useEffect(() => {
     currentNoteIdRef.current = currentNoteId
     updateWindowTitle(currentNoteId)
   }, [currentNoteId])
+
+  // Update decorations whenever content changes
+  useEffect(() => {
+    if (editorRef.current) {
+      updateAggregatedDecorations(content)
+    }
+  }, [content, updateAggregatedDecorations])
   
   const setupMonacoLanguage = useCallback((monaco: Monaco) => {
     // Register a new language for our note format
@@ -207,22 +429,33 @@ const App: React.FC = () => {
   const handleContentChange = useCallback((value: string | undefined) => {
     const newContent = value || ''
     setContent(newContent)
-    
+
+    // Get current cursor position
+    const editor = editorRef.current
+    const position = editor?.getPosition()
+    const cursorLineNumber = position?.lineNumber
+
+    // Trigger aggregation check (only when cursor leaves first line)
+    handleAggregation(newContent, cursorLineNumber)
+
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
     }
-    
+
     // Auto-save after 250ms of no typing
     saveTimeoutRef.current = setTimeout(async () => {
       try {
+        // Strip aggregated content before saving
+        const contentToSave = newContent.split('--------')[0]
+
         const noteId = currentNoteIdRef.current
         if (noteId) {
           // Update existing note
-          await (window as any).electronAPI?.updateExistingNote(noteId, newContent)
+          await (window as any).electronAPI?.updateExistingNote(noteId, contentToSave)
         } else {
           // Create new note and track its ID
-          const result = await (window as any).electronAPI?.saveNote(newContent)
+          const result = await (window as any).electronAPI?.saveNote(contentToSave)
           if (result?.id) {
             setCurrentNoteId(result.id)
           }
@@ -231,7 +464,7 @@ const App: React.FC = () => {
         console.error('Failed to save note:', error)
       }
     }, 250)
-  }, [])
+  }, [handleAggregation])
 
   // Load initial note on startup
   useEffect(() => {
@@ -285,16 +518,22 @@ const App: React.FC = () => {
       console.log('loadNoteById called with noteId:', noteId)
       const note = await (window as any).electronAPI?.loadNoteById(noteId)
       console.log('Note loaded from backend:', note)
-      
+
       if (note) {
         setContent(note.content)
         setCurrentNoteId(noteId)
         console.log('Set currentNoteId to:', noteId)
-        
+
         // Update the ref as well for navigation
         currentNoteIdRef.current = noteId
         console.log('Set currentNoteIdRef.current to:', noteId)
-        
+
+        // Reset first line ref to force aggregation check
+        previousFirstLineRef.current = ''
+
+        // Trigger aggregation for the loaded note
+        handleAggregation(note.content)
+
         // Update window title
         await updateWindowTitle(noteId)
       } else {
@@ -308,9 +547,23 @@ const App: React.FC = () => {
   const handleNewNote = useCallback(() => {
     setContent('')
     setCurrentNoteId(null)
+
+    // Reset first line ref
+    previousFirstLineRef.current = ''
+
     // Clear any pending save
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Clear any pending aggregation
+    if (aggregationTimeoutRef.current) {
+      clearTimeout(aggregationTimeoutRef.current)
+    }
+
+    // Clear decorations
+    if (editorRef.current) {
+      decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, [])
     }
   }, [])
 
@@ -535,6 +788,12 @@ const App: React.FC = () => {
           }}
           onMount={(editor, monaco) => {
             monaco.editor.setTheme('notes-theme')
+
+            // Store editor reference
+            editorRef.current = editor
+
+            // Apply initial decorations if content has delimiter
+            updateAggregatedDecorations(content)
             
             // Add navigation commands
             editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.DownArrow, async () => {

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { RelatedAction } from '../types'
 
 export interface Note {
   id: string
@@ -45,8 +46,12 @@ const electronAPI = {
   getRecentAudienceSuggestions: (prefix?: string): Promise<string[]> => {
     return ipcRenderer.invoke('get-recent-audience-suggestions', prefix)
   },
-  
-  
+
+  getRelatedActions: (audience: string[], days?: number): Promise<RelatedAction[]> => {
+    return ipcRenderer.invoke('get-related-actions', audience, days)
+  },
+
+
   createNewNote: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('create-new-note')
   },

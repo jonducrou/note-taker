@@ -600,6 +600,15 @@ ipcMain.handle('get-recent-audience-suggestions', async (_event, prefix?: string
   return await fileStorage.getRecentAudienceSuggestions(prefix)
 })
 
+ipcMain.handle('get-related-actions', async (_event, audience: string[], days?: number) => {
+  try {
+    return await fileStorage.getRelatedActionItems(audience, days)
+  } catch (error) {
+    console.error('Failed to get related actions:', error)
+    return []
+  }
+})
+
 
 ipcMain.handle('create-new-note', async () => {
   // Signal to create new note - just return success for now

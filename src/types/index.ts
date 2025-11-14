@@ -81,3 +81,25 @@ export interface TranscriptionConfig {
   modelPath: string
   outputDir: string
 }
+
+// Related action aggregation types
+export interface Action {
+  text: string
+  completed: boolean
+  lineNumber: number
+}
+
+export interface RelatedConnection {
+  subject: string
+  direction: 'left' | 'right'
+  completed: boolean
+  lineNumber: number
+}
+
+export interface RelatedAction {
+  noteId: string
+  noteTitle: string
+  noteDate: string
+  actions: Action[]
+  connections: RelatedConnection[]
+}

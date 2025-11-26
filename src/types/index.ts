@@ -33,6 +33,8 @@ export interface NoteMetadata {
 }
 
 // Transcription types
+export type DeviceConnectionState = 'connected' | 'disconnected' | 'reconnecting' | 'failed'
+
 export interface TranscriptionStatus {
   isRecording: boolean
   isInitializing: boolean
@@ -42,6 +44,9 @@ export interface TranscriptionStatus {
   noteId?: string
   startTime?: number
   duration?: number
+  connectionState?: DeviceConnectionState
+  reconnectionAttempt?: number
+  maxReconnectionAttempts?: number
 }
 
 export interface TranscriptionSnippetEvent {

@@ -108,6 +108,9 @@ const electronAPI = {
     noteId?: string
     startTime?: number
     duration?: number
+    connectionState?: 'connected' | 'disconnected' | 'reconnecting' | 'failed'
+    reconnectionAttempt?: number
+    maxReconnectionAttempts?: number
   }> => {
     return ipcRenderer.invoke('transcription-get-status')
   },
@@ -131,6 +134,21 @@ const electronAPI = {
   onModelDownloadProgress: (callback: (progress: number) => void) => {
     ipcRenderer.on('model-download-progress', (_event, progress) => callback(progress))
     return () => ipcRenderer.removeAllListeners('model-download-progress')
+  },
+
+  onTranscriptionConnectionState: (callback: (data: {
+    state: 'connected' | 'disconnected' | 'reconnecting' | 'failed'
+    attempt?: number
+    maxAttempts?: number
+  }) => void) => {
+    ipcRenderer.on('transcription-connection-state', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('transcription-connection-state')
+  },
+
+  // Listen for finishing modal display messages
+  onShowFinishingModal: (callback: (show: boolean) => void) => {
+    ipcRenderer.on('show-finishing-modal', (_event, show) => callback(show))
+    return () => ipcRenderer.removeAllListeners('show-finishing-modal')
   }
 }
 

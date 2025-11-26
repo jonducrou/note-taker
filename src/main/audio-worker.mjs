@@ -1,16 +1,109 @@
 // Standalone Node.js process for audio transcription (ESM module)
 // This runs outside Electron's renderer context, so ESM imports work perfectly
 
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import fs from 'fs/promises';
+import { writeFileSync } from 'fs';
+import os from 'os';
+
+// ============================================================
+// Rolling in-memory log (last 100 entries, dumps on exit/crash)
+// ============================================================
+const LOG_BUFFER_SIZE = 100;
+const logBuffer = [];
+let logIndex = 0;
+
+function addToLog(level, ...args) {
+  const timestamp = new Date().toISOString();
+  const message = args.map(arg =>
+    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+  ).join(' ');
+
+  const entry = `[${timestamp}] [${level}] ${message}`;
+
+  // Ring buffer: overwrite oldest entry when full
+  if (logBuffer.length < LOG_BUFFER_SIZE) {
+    logBuffer.push(entry);
+  } else {
+    logBuffer[logIndex % LOG_BUFFER_SIZE] = entry;
+  }
+  logIndex++;
+}
+
+function getOrderedLogs() {
+  if (logBuffer.length < LOG_BUFFER_SIZE) {
+    return logBuffer;
+  }
+  // Ring buffer is full, reorder from oldest to newest
+  const startIdx = logIndex % LOG_BUFFER_SIZE;
+  return [
+    ...logBuffer.slice(startIdx),
+    ...logBuffer.slice(0, startIdx)
+  ];
+}
+
+// Generate unique log filename with timestamp
+const workerStartTime = new Date().toISOString().replace(/[:.]/g, '-');
+
+function dumpLogs(reason) {
+  const notesDir = join(os.homedir(), 'Documents', 'Notes');
+  const logFilename = `worker-log-${workerStartTime}.log`;
+  const logPath = join(notesDir, logFilename);
+  const logs = getOrderedLogs();
+  const header = `${'='.repeat(60)}\nWorker Log Dump: ${reason}\nTime: ${new Date().toISOString()}\nPID: ${process.pid}\nEntries: ${logs.length}\n${'='.repeat(60)}\n`;
+  const content = header + logs.join('\n') + '\n';
+
+  try {
+    // Use sync write to ensure it completes before process exits
+    writeFileSync(logPath, content);
+  } catch (e) {
+    // Last resort - write to stderr
+    process.stderr.write(`Failed to write crash log: ${e.message}\n`);
+    process.stderr.write(content);
+  }
+}
+
+// Override console.log and console.error to capture to ring buffer
+const originalLog = console.log.bind(console);
+const originalError = console.error.bind(console);
+
+console.log = (...args) => {
+  addToLog('INFO', ...args);
+  originalLog(...args);
+};
+
+console.error = (...args) => {
+  addToLog('ERROR', ...args);
+  originalError(...args);
+};
+
+// Dump logs on various exit scenarios
+process.on('exit', (code) => {
+  dumpLogs(`Process exit with code ${code}`);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Worker] Uncaught exception:', error.message, error.stack);
+  dumpLogs(`Uncaught exception: ${error.message}`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Worker] Unhandled rejection:', reason);
+  dumpLogs(`Unhandled rejection: ${reason}`);
+});
+
+// ============================================================
+// Main worker code
+// ============================================================
+
 console.log('[Worker] Starting, about to import AudioTranscriber...');
 console.log('[Worker] Process:', { pid: process.pid, execPath: process.execPath, cwd: process.cwd() });
 
 import { AudioTranscriber } from 'ts-audio-transcriber/dist/index.js';
 
 console.log('[Worker] AudioTranscriber imported successfully');
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs/promises';
-import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,7 +130,7 @@ async function initialize(config) {
 
     transcriber = new AudioTranscriber({
       enableMicrophone: config.enableMicrophone,
-      enableSystemAudio: true,  // Enable system audio capture
+      enableSystemAudio: config.enableSystemAudio ?? false,  // Requires screen recording permission
 
       snippets: {
         enabled: true,
@@ -63,6 +156,13 @@ async function initialize(config) {
         outputDir: config.outputDir,
         format: 'wav',
         autoCleanup: false
+      },
+
+      reconnection: {
+        maxAttempts: 5,
+        baseDelay: 1000,
+        maxDelay: 30000,
+        backoffMultiplier: 2
       }
     });
 
@@ -94,6 +194,32 @@ async function initialize(config) {
       console.error('[Worker] Transcriber error event:', error.message);
       console.error('[Worker] Error stack:', error.stack);
       sendMessage('error', { message: error.message, stack: error.stack });
+    });
+
+    // Durability event handlers (v1.3.0)
+    transcriber.on('deviceDisconnected', (event) => {
+      console.log('[Worker] Device disconnected:', event.reason);
+      sendMessage('deviceDisconnected', event);
+    });
+
+    transcriber.on('reconnectionAttempt', (event) => {
+      console.log(`[Worker] Reconnection attempt ${event.attempt}/${event.maxAttempts}`);
+      sendMessage('reconnectionAttempt', event);
+    });
+
+    transcriber.on('reconnectionFailed', (event) => {
+      console.error('[Worker] Reconnection failed after', event.totalAttempts, 'attempts');
+      sendMessage('reconnectionFailed', event);
+    });
+
+    transcriber.on('reconnectionSuccess', (event) => {
+      console.log('[Worker] Reconnection successful after', event.attemptsRequired, 'attempts');
+      sendMessage('reconnectionSuccess', event);
+    });
+
+    transcriber.on('recordingRotated', (event) => {
+      console.log('[Worker] Recording rotated:', event.newSessionId);
+      sendMessage('recordingRotated', event);
     });
 
     sendMessage('initialized', { success: true });
@@ -179,16 +305,20 @@ process.on('message', async (msg) => {
 
 // Handle process termination
 process.on('SIGTERM', async () => {
+  console.log('[Worker] Received SIGTERM, shutting down...');
   if (transcriber && transcriber.isRunning()) {
     await transcriber.stop();
   }
+  dumpLogs('SIGTERM received');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
+  console.log('[Worker] Received SIGINT, shutting down...');
   if (transcriber && transcriber.isRunning()) {
     await transcriber.stop();
   }
+  dumpLogs('SIGINT received');
   process.exit(0);
 });
 

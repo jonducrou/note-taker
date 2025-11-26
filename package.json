@@ -57,7 +57,7 @@
     "js-yaml": "^4.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "ts-audio-transcriber": "github:jonducrou/ts_audio_transcriber#v1.2.1",
+    "ts-audio-transcriber": "github:jonducrou/ts_audio_transcriber#v1.3.0",
     "unzipper": "^0.12.3"
   },
   "overrides": {

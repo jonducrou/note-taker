@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, Tray, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, dialog, Tray, ipcMain, Notification } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
 import { FileStorage } from '../storage/FileStorage'
@@ -855,6 +855,23 @@ app.whenReady().then(async () => {
       }
     })
 
+    // Set up connection state callback for durability events
+    transcriptionManager.setConnectionStateCallback((state, attempt, maxAttempts) => {
+      // Send state to renderer for UI update
+      if (mainWindow) {
+        mainWindow.webContents.send('transcription-connection-state', { state, attempt, maxAttempts })
+      }
+
+      // Show system notification on reconnection failure
+      if (state === 'failed') {
+        new Notification({
+          title: 'Recording Stopped',
+          body: 'Audio recording stopped due to device disconnection. Please restart recording manually.',
+          silent: false
+        }).show()
+      }
+    })
+
     await transcriptionManager.initialize()
     console.log('TranscriptionManager initialized (model may still be downloading)')
   } catch (error) {
@@ -898,6 +915,33 @@ app.on('before-quit', async (event) => {
     event.preventDefault()
 
     isQuitting = true
+
+    // Check if transcription is active and needs graceful shutdown
+    if (transcriptionManager.isActive()) {
+      console.log('[Main] Transcription active, showing finishing modal and waiting for transcript...')
+
+      // Show the window if hidden and send finishing modal message
+      if (mainWindow) {
+        if (!mainWindow.isVisible()) {
+          mainWindow.show()
+        }
+        mainWindow.webContents.send('show-finishing-modal', true)
+      }
+
+      try {
+        // Wait for transcript to be saved (with 30 second timeout)
+        await transcriptionManager.stopAndWaitForTranscript(30000)
+        console.log('[Main] Transcript saved successfully')
+      } catch (error) {
+        console.error('[Main] Error waiting for transcript:', error)
+      }
+
+      // Hide the modal
+      if (mainWindow) {
+        mainWindow.webContents.send('show-finishing-modal', false)
+      }
+    }
+
     if (tray) {
       tray.destroy()
     }

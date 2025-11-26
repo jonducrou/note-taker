@@ -13,6 +13,9 @@ const App: React.FC = () => {
   const [isProcessingTranscript, setIsProcessingTranscript] = useState(false)
   const [modelReady, setModelReady] = useState(false)
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
+  const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'reconnecting' | 'failed' | null>(null)
+  const [reconnectionAttempt, setReconnectionAttempt] = useState<number | undefined>(undefined)
+  const [showFinishingModal, setShowFinishingModal] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
   const previousFirstLineRef = useRef<string>('')
@@ -687,6 +690,39 @@ const App: React.FC = () => {
     }
   }, [])
 
+  // Listen for transcription connection state changes
+  useEffect(() => {
+    let cleanup: (() => void) | undefined
+    if ((window as any).electronAPI) {
+      cleanup = (window as any).electronAPI.onTranscriptionConnectionState((data: {
+        state: 'connected' | 'disconnected' | 'reconnecting' | 'failed'
+        attempt?: number
+        maxAttempts?: number
+      }) => {
+        setConnectionState(data.state)
+        setReconnectionAttempt(data.attempt)
+      })
+    }
+
+    return () => {
+      if (cleanup) cleanup()
+    }
+  }, [])
+
+  // Listen for finishing modal display from main process
+  useEffect(() => {
+    let cleanup: (() => void) | undefined
+    if ((window as any).electronAPI) {
+      cleanup = (window as any).electronAPI.onShowFinishingModal((show: boolean) => {
+        setShowFinishingModal(show)
+      })
+    }
+
+    return () => {
+      if (cleanup) cleanup()
+    }
+  }, [])
+
   if (isLoading) {
     return (
       <div className="app">
@@ -723,10 +759,12 @@ const App: React.FC = () => {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: '#FF3B30',
+                backgroundColor: connectionState === 'reconnecting' ? '#FF9500' : '#FF3B30',
                 animation: 'pulse 1.5s ease-in-out infinite'
               }}
-              title="Recording audio"
+              title={connectionState === 'reconnecting'
+                ? `Reconnecting... (attempt ${reconnectionAttempt || 1})`
+                : 'Recording audio'}
             />
           )}
           {isProcessingTranscript && (
@@ -1108,6 +1146,54 @@ const App: React.FC = () => {
           }}
         />
       </div>
+
+      {/* Finishing up modal - shown when app is quitting with active recording */}
+      {showFinishingModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#007AFF',
+              animation: 'pulse 1.5s ease-in-out infinite',
+              marginBottom: '16px'
+            }}
+          />
+          <div
+            style={{
+              fontSize: '14px',
+              color: '#333',
+              fontWeight: 500
+            }}
+          >
+            Finishing up...
+          </div>
+          <div
+            style={{
+              fontSize: '12px',
+              color: '#666',
+              marginTop: '8px'
+            }}
+          >
+            Saving transcription
+          </div>
+        </div>
+      )}
     </div>
   )
 }

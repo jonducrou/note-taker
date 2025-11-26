@@ -9,7 +9,8 @@ import type {
   TranscriptionStatus,
   TranscriptionSnippetEvent,
   TranscriptionSessionEvent,
-  TranscriptionConfig
+  TranscriptionConfig,
+  DeviceConnectionState
 } from '../../types';
 import { ModelDownloader } from './ModelDownloader';
 
@@ -30,6 +31,7 @@ export class TranscriptionManager {
   private downloadProgress = 0;
   private downloadError: string | null = null;
   private progressCallback: ((progress: number) => void) | null = null;
+  private connectionStateCallback: ((state: DeviceConnectionState, attempt?: number, maxAttempts?: number) => void) | null = null;
 
   // Session to file path mapping to handle async sessionTranscript events
   private sessionFilePaths = new Map<string, {
@@ -37,6 +39,9 @@ export class TranscriptionManager {
     snippetFilePath: string;
     noteId: string;
   }>();
+
+  // Resolve function for graceful shutdown - called when session transcript is saved
+  private transcriptCompleteResolve: (() => void) | null = null;
 
   // New strategy tracking
   private newestNoteId: string | null = null;
@@ -241,6 +246,10 @@ export class TranscriptionManager {
       case 'recordingStarted':
         this.status.sessionId = msg.data.sessionId;
         this.status.startTime = msg.data.startTime;
+        // Set recording state - this is the real signal that recording has begun
+        this.status.isRecording = true;
+        this.status.isInitializing = false;
+        this.status.connectionState = 'connected';
 
         // Store file path mapping for this session
         if (this.transcriptionFilePath && this.snippetFilePath && this.currentNoteId) {
@@ -253,6 +262,9 @@ export class TranscriptionManager {
         }
 
         console.log('[TranscriptionManager] Recording started:', msg.data.sessionId);
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('connected');
+        }
         break;
       case 'recordingStopped':
         console.log('[TranscriptionManager] Recording stopped:', msg.data.duration);
@@ -270,7 +282,11 @@ export class TranscriptionManager {
         // Audio capture has actually started - update status
         this.status.isRecording = true;
         this.status.isInitializing = false;
+        this.status.connectionState = 'connected';
         console.log('[TranscriptionManager] Transcription started successfully');
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('connected');
+        }
         break;
       case 'stopped':
         console.log('[TranscriptionManager] Transcription stopped successfully');
@@ -278,6 +294,47 @@ export class TranscriptionManager {
       case 'initialized':
         console.log('[TranscriptionManager] Worker initialized successfully');
         break;
+
+      // Durability event handlers (v1.3.0)
+      case 'deviceDisconnected':
+        console.log('[TranscriptionManager] Device disconnected:', msg.data.reason);
+        this.status.connectionState = 'disconnected';
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('disconnected');
+        }
+        break;
+      case 'reconnectionAttempt':
+        console.log(`[TranscriptionManager] Reconnection attempt ${msg.data.attempt}/${msg.data.maxAttempts}`);
+        this.status.connectionState = 'reconnecting';
+        this.status.reconnectionAttempt = msg.data.attempt;
+        this.status.maxReconnectionAttempts = msg.data.maxAttempts;
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('reconnecting', msg.data.attempt, msg.data.maxAttempts);
+        }
+        break;
+      case 'reconnectionFailed':
+        console.error('[TranscriptionManager] Reconnection failed after', msg.data.totalAttempts, 'attempts');
+        this.status.connectionState = 'failed';
+        this.status.isRecording = false;
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('failed');
+        }
+        break;
+      case 'reconnectionSuccess':
+        console.log('[TranscriptionManager] Reconnection successful after', msg.data.attemptsRequired, 'attempts');
+        this.status.connectionState = 'connected';
+        this.status.reconnectionAttempt = undefined;
+        this.status.maxReconnectionAttempts = undefined;
+        if (this.connectionStateCallback) {
+          this.connectionStateCallback('connected');
+        }
+        break;
+      case 'recordingRotated':
+        console.log('[TranscriptionManager] Recording rotated:', msg.data.newSessionId);
+        // Update session ID for file routing
+        this.status.sessionId = msg.data.newSessionId;
+        break;
+
       default:
         console.log('[TranscriptionManager] Unknown message from worker:', msg.type);
     }
@@ -351,6 +408,13 @@ export class TranscriptionManager {
     if (event.sessionId && this.sessionFilePaths.has(event.sessionId)) {
       this.sessionFilePaths.delete(event.sessionId);
       console.log('[TranscriptionManager] Cleaned up session mapping for:', event.sessionId);
+    }
+
+    // Resolve graceful shutdown promise if waiting
+    if (this.transcriptCompleteResolve) {
+      console.log('[TranscriptionManager] Resolving transcript complete promise');
+      this.transcriptCompleteResolve();
+      this.transcriptCompleteResolve = null;
     }
   }
 
@@ -430,6 +494,51 @@ export class TranscriptionManager {
     // this.snippetFilePath = null;
   }
 
+  /**
+   * Stop transcription and wait for the session transcript to be saved.
+   * Used for graceful shutdown to ensure no data is lost.
+   * @param timeoutMs Maximum time to wait for transcript (default: 30 seconds)
+   */
+  async stopAndWaitForTranscript(timeoutMs = 30000): Promise<void> {
+    if (!this.status.isRecording && !this.status.isInitializing) {
+      console.log('[TranscriptionManager] Not recording, nothing to wait for');
+      return;
+    }
+
+    console.log('[TranscriptionManager] Stopping and waiting for transcript...');
+
+    // Create promise that will be resolved when transcript is saved
+    const transcriptPromise = new Promise<void>((resolve) => {
+      this.transcriptCompleteResolve = resolve;
+    });
+
+    // Create timeout promise
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.warn('[TranscriptionManager] Transcript wait timeout after', timeoutMs, 'ms');
+        if (this.transcriptCompleteResolve) {
+          this.transcriptCompleteResolve = null;
+        }
+        resolve();
+      }, timeoutMs);
+    });
+
+    // Stop the transcription
+    await this.stop();
+
+    // Wait for either transcript completion or timeout
+    await Promise.race([transcriptPromise, timeoutPromise]);
+
+    console.log('[TranscriptionManager] Transcript wait complete');
+  }
+
+  /**
+   * Check if transcription is currently active (recording or initializing)
+   */
+  isActive(): boolean {
+    return this.status.isRecording || this.status.isInitializing || this.status.isProcessingTranscript;
+  }
+
   getStatus(): TranscriptionStatus {
     return { ...this.status };
   }
@@ -444,6 +553,10 @@ export class TranscriptionManager {
 
   setModelProgressCallback(callback: (progress: number) => void): void {
     this.progressCallback = callback;
+  }
+
+  setConnectionStateCallback(callback: (state: DeviceConnectionState, attempt?: number, maxAttempts?: number) => void): void {
+    this.connectionStateCallback = callback;
   }
 
   private getTranscriptionPath(noteId: string): string {

@@ -29,6 +29,17 @@ declare module 'ts-audio-transcriber' {
     maxDuration?: number
   }
 
+  export interface ReconnectionConfig {
+    maxAttempts?: number
+    baseDelay?: number
+    maxDelay?: number
+    backoffMultiplier?: number
+  }
+
+  export type DeviceConnectionState = 'connected' | 'disconnected' | 'reconnecting' | 'failed'
+
+  export type DisconnectReason = 'process_exit' | 'error' | 'device_removed' | 'permission_revoked' | 'unknown'
+
   export interface TranscriberOptions {
     enableMicrophone?: boolean
     enableSystemAudio?: boolean
@@ -37,6 +48,7 @@ declare module 'ts-audio-transcriber' {
     snippets?: SnippetPipelineConfig
     sessionTranscript?: SessionTranscriptConfig
     recording?: RecordingConfig
+    reconnection?: ReconnectionConfig
   }
 
   export interface SnippetEvent {
@@ -76,6 +88,49 @@ declare module 'ts-audio-transcriber' {
     endTime?: number
   }
 
+  export interface RecordingProgress {
+    sessionId: string
+    duration: number
+    fileSize: number
+  }
+
+  export interface DeviceDisconnectedEvent {
+    source: 'microphone' | 'system-audio'
+    reason: DisconnectReason
+    error?: Error
+    timestamp: number
+    willAttemptReconnection: boolean
+    sessionId?: string
+    durationAtDisconnect?: number
+  }
+
+  export interface ReconnectionAttemptEvent {
+    attempt: number
+    maxAttempts: number
+    delay: number
+    timestamp: number
+  }
+
+  export interface ReconnectionFailedEvent {
+    totalAttempts: number
+    elapsedTime: number
+    lastError?: Error
+    recommendation: 'manual_restart' | 'check_device' | 'check_permissions'
+  }
+
+  export interface ReconnectionSuccessEvent {
+    attemptsRequired: number
+    totalReconnectionTime: number
+    timestamp: number
+  }
+
+  export interface RecordingRotationResult {
+    previousSessionId: string
+    newSessionId: string
+    completedFilePath: string
+    timestamp: number
+  }
+
   export class AudioTranscriber {
     constructor(options?: TranscriberOptions)
 
@@ -92,10 +147,15 @@ declare module 'ts-audio-transcriber' {
     on(event: 'sessionTranscript', listener: (event: SessionTranscriptEvent) => void): this
     on(event: 'recordingStarted', listener: (metadata: RecordingMetadata) => void): this
     on(event: 'recordingStopped', listener: (metadata: RecordingMetadata) => void): this
-    on(event: 'recordingProgress', listener: (metadata: RecordingMetadata) => void): this
+    on(event: 'recordingProgress', listener: (progress: RecordingProgress) => void): this
     on(event: 'started', listener: () => void): this
     on(event: 'stopped', listener: () => void): this
     on(event: 'error', listener: (error: Error) => void): this
     on(event: 'metrics', listener: (metrics: any) => void): this
+    on(event: 'deviceDisconnected', listener: (event: DeviceDisconnectedEvent) => void): this
+    on(event: 'reconnectionAttempt', listener: (event: ReconnectionAttemptEvent) => void): this
+    on(event: 'reconnectionFailed', listener: (event: ReconnectionFailedEvent) => void): this
+    on(event: 'reconnectionSuccess', listener: (event: ReconnectionSuccessEvent) => void): this
+    on(event: 'recordingRotated', listener: (event: RecordingRotationResult) => void): this
   }
 }

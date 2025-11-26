@@ -71,6 +71,7 @@ src/
 - `npm run lint` - ESLint code quality checks
 - `npm run test` - Run core unit tests
 - `npm run test:coverage` - Run tests with coverage report
+- `npx jest <file>` - Run a single test file (e.g., `npx jest FileStorage.test.ts`)
 - `npm run dist` - Create distributable package
 
 ## Testing
@@ -84,3 +85,6 @@ src/
 - **Filename**: `YYYY-MM-DD_HHMMSS.md`
 - **Format**: YAML frontmatter + markdown content
 - **Metadata**: Extracted from inline `#group` and `@audience:` tags
+
+## Decisions Reference
+See `DECISIONS.md` for architectural decisions and rejected approaches. Check this before attempting solutions to avoid repeating approaches that didn't work.

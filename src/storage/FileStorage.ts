@@ -102,9 +102,17 @@ export class FileStorage {
     return `${date}_${time}.md`
   }
 
+  /**
+   * Remove trailing whitespace from each line
+   */
+  private trimTrailingWhitespace(content: string): string {
+    return content.split('\n').map(line => line.trimEnd()).join('\n')
+  }
+
   formatNoteContent(content: string, metadata: NoteMetadata): string {
     const frontmatter = yaml.dump(metadata)
-    return `---\n${frontmatter}---\n\n${content}`
+    const trimmedContent = this.trimTrailingWhitespace(content)
+    return `---\n${frontmatter}---\n\n${trimmedContent}`
   }
 
   parseNoteContent(fileContent: string): { metadata: NoteMetadata; content: string } {

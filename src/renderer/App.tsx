@@ -18,7 +18,7 @@ const App: React.FC = () => {
   const [showFinishingModal, setShowFinishingModal] = useState(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentNoteIdRef = useRef<string | null>(null)
-  const previousFirstLineRef = useRef<string>('')
+  const previousAudienceRef = useRef<string[]>([])
   const aggregationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const editorRef = useRef<any>(null)
   const decorationsRef = useRef<string[]>([])
@@ -64,21 +64,27 @@ const App: React.FC = () => {
     }
   }
 
-  // Extract audience members from content
+  // Extract audience members from content (only user content, not aggregated section)
   const extractAudience = (content: string): string[] => {
+    // Only extract from user content - before the aggregation separator
+    const userContent = content.split('--------')[0]
     const audience: Set<string> = new Set()
 
     // Look for @audience: format (comma-separated)
-    const audienceMatch = content.match(/@audience:([^\n]+)/)
+    const audienceMatch = userContent.match(/@audience:([^\n]+)/)
     if (audienceMatch) {
       const members = audienceMatch[1].split(',').map(m => m.trim()).filter(m => m.length > 0)
       members.forEach(m => audience.add(m))
     }
 
-    // Also look for standalone @ tags
-    const atMatches = content.matchAll(/@([a-zA-Z][a-zA-Z0-9_-]*)/g)
+    // Also look for standalone @ tags - only at start of line or after whitespace
+    // This prevents matching @ in email addresses or mid-word
+    const atMatches = userContent.matchAll(/(?:^|[\s])@([a-zA-Z][a-zA-Z0-9_-]*)/gm)
     for (const match of atMatches) {
-      audience.add(match[1])
+      // Skip "audience" since it's handled above
+      if (match[1].toLowerCase() !== 'audience') {
+        audience.add(match[1])
+      }
     }
 
     return Array.from(audience)
@@ -168,29 +174,29 @@ const App: React.FC = () => {
     decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, decorations)
   }, [])
 
-  // Handle aggregation when cursor leaves first line or first line changes
-  const handleAggregation = useCallback(async (content: string, cursorLineNumber?: number) => {
-    const lines = content.split('\n')
-    const firstLine = lines[0] || ''
+  // Helper to compare audience arrays
+  const audienceChanged = (prev: string[], current: string[]): boolean => {
+    if (prev.length !== current.length) return true
+    const prevSorted = [...prev].sort()
+    const currentSorted = [...current].sort()
+    return prevSorted.some((item, index) => item !== currentSorted[index])
+  }
 
-    // Only trigger if cursor is NOT on first line OR if first line changed significantly
-    const isOnFirstLine = cursorLineNumber === 1
-    const firstLineChanged = firstLine !== previousFirstLineRef.current
-
-    // If user is still typing on first line, don't trigger yet
-    if (isOnFirstLine && !firstLineChanged) {
-      return
-    }
-
-    // If first line hasn't changed and we're not moving away, don't trigger
-    if (!firstLineChanged && isOnFirstLine) {
-      return
-    }
-
-    previousFirstLineRef.current = firstLine
-
+  // Handle aggregation when audience tags change
+  const handleAggregation = useCallback(async (content: string, _cursorLineNumber?: number) => {
     // Extract audience from content
     const audience = extractAudience(content)
+
+    // Check if audience has actually changed
+    const hasAudienceChanged = audienceChanged(previousAudienceRef.current, audience)
+
+    if (!hasAudienceChanged) {
+      // Audience hasn't changed, don't refresh
+      return
+    }
+
+    // Update the previous audience ref
+    previousAudienceRef.current = audience
 
     if (audience.length === 0) {
       // No audience, clear aggregation
@@ -531,8 +537,8 @@ const App: React.FC = () => {
         currentNoteIdRef.current = noteId
         console.log('Set currentNoteIdRef.current to:', noteId)
 
-        // Reset first line ref to force aggregation check
-        previousFirstLineRef.current = ''
+        // Reset audience ref to force aggregation check
+        previousAudienceRef.current = []
 
         // Trigger aggregation for the loaded note
         handleAggregation(note.content)
@@ -551,8 +557,8 @@ const App: React.FC = () => {
     setContent('')
     setCurrentNoteId(null)
 
-    // Reset first line ref
-    previousFirstLineRef.current = ''
+    // Reset audience ref
+    previousAudienceRef.current = []
 
     // Clear any pending save
     if (saveTimeoutRef.current) {

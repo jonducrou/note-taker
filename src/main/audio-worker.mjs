@@ -112,6 +112,24 @@ let transcriber = null;
 let currentConfig = null;
 let currentSessionId = null;
 
+// Save data to fallback file when IPC is unavailable
+function saveFallbackData(type, data) {
+  const notesDir = join(os.homedir(), 'Documents', 'Notes');
+  const fallbackPath = join(notesDir, `worker-fallback-${Date.now()}.json`);
+  const fallbackData = {
+    type,
+    data,
+    timestamp: new Date().toISOString(),
+    sessionId: currentSessionId
+  };
+  try {
+    writeFileSync(fallbackPath, JSON.stringify(fallbackData, null, 2));
+    console.log(`[Worker] Saved fallback data to: ${fallbackPath}`);
+  } catch (err) {
+    console.error(`[Worker] Failed to save fallback data:`, err);
+  }
+}
+
 // Send message back to main process
 function sendMessage(type, data) {
   console.log(`[Worker] sendMessage called: type=${type}, sessionId=${data?.sessionId || 'none'}`);
@@ -119,7 +137,15 @@ function sendMessage(type, data) {
     process.send({ type, data });
     console.log(`[Worker] Message sent successfully: ${type}`);
   } catch (error) {
-    console.error(`[Worker] Failed to send message:`, error);
+    // Check for EPIPE or closed IPC channel
+    if (error.code === 'EPIPE' || error.code === 'ERR_IPC_CHANNEL_CLOSED' || error.message?.includes('channel closed')) {
+      console.error(`[Worker] IPC disconnected (${error.code}), saving data to fallback file`);
+      saveFallbackData(type, data);
+      dumpLogs('IPC disconnected - EPIPE');
+      process.exit(0);  // Graceful exit
+    } else {
+      console.error(`[Worker] Failed to send message:`, error);
+    }
   }
 }
 
@@ -167,7 +193,14 @@ async function initialize(config) {
     });
 
     // Setup event handlers
+    const MIN_CONFIDENCE = 0.5;  // Skip low-confidence snippets (silence often transcribes as "the" at 30%)
+
     transcriber.on('snippet', (event) => {
+      // Skip low-confidence snippets to reduce false positives on silence
+      if (event.confidence < MIN_CONFIDENCE) {
+        console.log(`[Worker] Skipping low-confidence snippet: ${(event.confidence * 100).toFixed(0)}% - "${event.text}"`);
+        return;
+      }
       // Add current sessionId to snippet events for routing
       sendMessage('snippet', { ...event, sessionId: currentSessionId });
     });
@@ -242,15 +275,31 @@ async function start(noteId) {
   }
 }
 
-// Stop transcription
+// Stop transcription with timeout to prevent hanging on large files
+const SESSION_TIMEOUT_MS = 60000;  // 60 seconds max for session processing
+
 async function stop() {
   try {
     if (!transcriber) {
       throw new Error('Transcriber not initialized');
     }
 
-    await transcriber.stop();
-    sendMessage('stopped', { success: true });
+    const stopPromise = transcriber.stop();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Session processing timeout after 60s')), SESSION_TIMEOUT_MS);
+    });
+
+    try {
+      await Promise.race([stopPromise, timeoutPromise]);
+      sendMessage('stopped', { success: true });
+    } catch (timeoutError) {
+      if (timeoutError.message.includes('timeout')) {
+        console.error('[Worker] Session processing timed out, using snippets only');
+        sendMessage('stopped', { success: true, timedOut: true });
+      } else {
+        throw timeoutError;
+      }
+    }
   } catch (error) {
     sendMessage('error', { message: error.message, stack: error.stack });
   }

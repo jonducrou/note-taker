@@ -197,12 +197,39 @@ export class TranscriptionManager {
     await this.waitForWorker();
 
     // Send initialization config
-    this.worker.send({
+    this.sendToWorker({
       type: 'initialize',
       config: this.config
     });
 
     console.log('[TranscriptionManager] Initialized with worker process');
+  }
+
+  /**
+   * Safely send message to worker with error handling
+   */
+  private sendToWorker(message: any): void {
+    try {
+      this.worker?.send(message);
+    } catch (error) {
+      console.error('[TranscriptionManager] Failed to send to worker:', error);
+      this.handleWorkerDisconnect();
+    }
+  }
+
+  /**
+   * Handle worker disconnection - cleanup state
+   */
+  private handleWorkerDisconnect(): void {
+    console.log('[TranscriptionManager] Worker disconnected, cleaning up state');
+    this.workerReady = false;
+    this.status = {
+      isRecording: false,
+      isInitializing: false,
+      isProcessingTranscript: false,
+      isPaused: false
+    };
+    this.cancelGracePeriod();
   }
 
   private waitForWorker(): Promise<void> {
@@ -436,6 +463,8 @@ export class TranscriptionManager {
 
     // Clear any previous file paths before starting new recording
     this.currentNoteId = noteId;
+    this.newestNoteId = noteId;  // Set newestNoteId so grace period works for manual recordings
+    this.cancelGracePeriod();    // Cancel any existing grace period
     this.transcriptionFilePath = this.getTranscriptionPath(noteId);
     this.snippetFilePath = this.getSnippetPath(noteId);
 
@@ -456,7 +485,7 @@ export class TranscriptionManager {
     };
 
     // Send start command to worker
-    this.worker.send({
+    this.sendToWorker({
       type: 'start',
       noteId
     });
@@ -471,7 +500,7 @@ export class TranscriptionManager {
     }
 
     // Send stop command to worker
-    this.worker.send({
+    this.sendToWorker({
       type: 'stop'
     });
 

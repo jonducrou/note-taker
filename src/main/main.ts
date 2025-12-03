@@ -795,6 +795,30 @@ ipcMain.handle('transcription-get-model-status', async () => {
   }
 })
 
+ipcMain.handle('transcription-get-init-status', async () => {
+  try {
+    return transcriptionManager.getInitializationStatus()
+  } catch (error) {
+    console.error('Failed to get init status:', error)
+    return {
+      modelReady: false,
+      modelError: null,
+      workerReady: false,
+      workerError: 'Failed to check status',
+      downloadProgress: 0
+    }
+  }
+})
+
+ipcMain.handle('transcription-restart-worker', async () => {
+  try {
+    return await transcriptionManager.restartWorker()
+  } catch (error) {
+    console.error('Failed to restart worker:', error)
+    return false
+  }
+})
+
 // Permissions IPC handlers
 ipcMain.handle('permissions-check', async () => {
   try {

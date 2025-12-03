@@ -309,8 +309,8 @@ describe('TranscriptionManager', () => {
       // Starting again should fail
       ;(mockWorker.send as jest.Mock).mockClear()
 
-      // Worker is marked as not ready after exit
-      await expect(manager.start('another-note.md')).rejects.toThrow('Worker not initialized')
+      // Worker is marked as not ready after exit - should get helpful error message
+      await expect(manager.start('another-note.md')).rejects.toThrow(/Audio system failed to initialize/)
     })
   })
 
@@ -532,6 +532,232 @@ describe('TranscriptionManager', () => {
 
       // Not recording, should return immediately
       await expect(manager.stopAndWaitForTranscript()).resolves.not.toThrow()
+    })
+  })
+
+  describe('Worker Initialization Failures', () => {
+    it('should track error when worker exits before ready', async () => {
+      // initialize() is non-blocking - it starts worker init in background
+      await manager.initialize()
+
+      // Wait for spawn to be called
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Simulate worker exiting before ready
+      mockWorker.emit('exit', 1)
+
+      // Wait for error callback to be processed
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Error should be tracked in workerInitError
+      const initStatus = manager.getInitializationStatus()
+      expect(initStatus.workerReady).toBe(false)
+      expect(initStatus.workerError).toContain('exited with code 1')
+    })
+
+    it('should timeout when worker never sends ready', async () => {
+      await manager.initialize()
+
+      // Wait for spawn to be called
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Advance time past 60 second timeout
+      jest.advanceTimersByTime(61000)
+
+      // Wait for timeout error callback
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Error should be tracked
+      const initStatus = manager.getInitializationStatus()
+      expect(initStatus.workerReady).toBe(false)
+      expect(initStatus.workerError).toContain('60 seconds')
+    })
+
+    it('should provide specific error when start() called while model downloading', async () => {
+      // Mock model not available (still downloading)
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(false),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        downloadModel: jest.fn().mockImplementation(() => new Promise(() => {})), // Never resolves
+        setProgressCallback: jest.fn()
+      }))
+
+      const downloadingManager = new TranscriptionManager()
+      await downloadingManager.initialize()
+
+      // Model is still downloading, try to start
+      await expect(downloadingManager.start('test-note.md')).rejects.toThrow(/model.*downloading/i)
+    })
+
+    it('should provide specific error when start() called after worker init failed', async () => {
+      // Restore model mock to available (test 3 changed it)
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(true),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        download: jest.fn().mockResolvedValue(undefined)
+      }))
+
+      const freshManager = new TranscriptionManager()
+      await freshManager.initialize()
+
+      // Wait for spawn
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Simulate worker crash during init
+      mockWorker.emit('exit', 1)
+
+      // Wait for error callback to be processed
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Now try to start - should get specific error about worker init failure
+      await expect(freshManager.start('test-note.md')).rejects.toThrow(/Worker initialization failed/i)
+    })
+
+    it('should expose workerInitError when initialization fails', async () => {
+      // Restore model mock to available
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(true),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        download: jest.fn().mockResolvedValue(undefined)
+      }))
+
+      const freshManager = new TranscriptionManager()
+      await freshManager.initialize()
+
+      // Wait for spawn
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Simulate worker exit
+      mockWorker.emit('exit', 127) // 127 = command not found
+
+      // Wait for error callback
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Should be able to get initialization error
+      const initStatus = freshManager.getInitializationStatus()
+      expect(initStatus.workerReady).toBe(false)
+      expect(initStatus.workerError).toBeTruthy()
+      expect(initStatus.workerError).toContain('127')
+    })
+
+    it('should handle spawn error when node is not found', async () => {
+      // Restore model mock to available
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(true),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        download: jest.fn().mockResolvedValue(undefined)
+      }))
+
+      // Make spawn throw an error
+      const { spawn } = require('child_process')
+      spawn.mockImplementationOnce(() => {
+        throw new Error('spawn node ENOENT')
+      })
+
+      const failingManager = new TranscriptionManager()
+
+      // Initialize - spawn error will be caught and tracked
+      await failingManager.initialize()
+
+      // Wait for error to be tracked
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Should expose the error
+      const initStatus = failingManager.getInitializationStatus()
+      expect(initStatus.workerReady).toBe(false)
+      expect(initStatus.workerError).toContain('ENOENT')
+    })
+
+    it('should restart worker after failure', async () => {
+      // Restore model mock to available
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(true),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        download: jest.fn().mockResolvedValue(undefined)
+      }))
+
+      const restartManager = new TranscriptionManager()
+      await restartManager.initialize()
+
+      // Wait for spawn
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Simulate worker crash
+      mockWorker.emit('exit', 1)
+
+      // Wait for error to be tracked
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Verify worker is broken
+      expect(restartManager.getInitializationStatus().workerReady).toBe(false)
+      expect(restartManager.getInitializationStatus().workerError).toBeTruthy()
+
+      // Restart the worker
+      const restartPromise = restartManager.restartWorker()
+
+      // Wait for spawn
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      // Simulate new worker ready
+      mockWorker.emit('message', { type: 'ready' })
+
+      await Promise.resolve()
+      jest.advanceTimersByTime(0)
+      await Promise.resolve()
+
+      mockWorker.emit('message', { type: 'initialized', data: { success: true } })
+
+      const success = await restartPromise
+
+      expect(success).toBe(true)
+      expect(restartManager.getInitializationStatus().workerReady).toBe(true)
+      expect(restartManager.getInitializationStatus().workerError).toBeNull()
+    })
+
+    it('should not restart worker if model not ready', async () => {
+      // Mock model not available
+      const { ModelDownloader } = require('../main/services/ModelDownloader')
+      ModelDownloader.mockImplementation(() => ({
+        isModelAvailable: jest.fn().mockResolvedValue(false),
+        getModelPath: jest.fn().mockReturnValue('/mock/model/path'),
+        downloadModel: jest.fn().mockImplementation(() => new Promise(() => {})),
+        setProgressCallback: jest.fn()
+      }))
+
+      const noModelManager = new TranscriptionManager()
+      await noModelManager.initialize()
+
+      const success = await noModelManager.restartWorker()
+      expect(success).toBe(false)
     })
   })
 })

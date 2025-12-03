@@ -13,6 +13,9 @@ const App: React.FC = () => {
   const [isProcessingTranscript, setIsProcessingTranscript] = useState(false)
   const [modelReady, setModelReady] = useState(false)
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
+  const [workerReady, setWorkerReady] = useState(false)
+  const [workerError, setWorkerError] = useState<string | null>(null)
+  const [isRestartingWorker, setIsRestartingWorker] = useState(false)
   const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'reconnecting' | 'failed' | null>(null)
   const [reconnectionAttempt, setReconnectionAttempt] = useState<number | undefined>(undefined)
   const [showFinishingModal, setShowFinishingModal] = useState(false)
@@ -576,6 +579,26 @@ const App: React.FC = () => {
     }
   }, [])
 
+  const handleRestartWorker = useCallback(async () => {
+    setIsRestartingWorker(true)
+    setWorkerError(null)
+    try {
+      const success = await (window as any).electronAPI?.transcriptionRestartWorker()
+      if (success) {
+        // Poll to get updated status
+        const status = await (window as any).electronAPI?.transcriptionGetInitStatus()
+        if (status) {
+          setWorkerReady(status.workerReady)
+          setWorkerError(status.workerError)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to restart worker:', error)
+    } finally {
+      setIsRestartingWorker(false)
+    }
+  }, [])
+
   const deleteCurrentNote = async () => {
     console.log('deleteCurrentNote called, currentNoteId:', currentNoteId)
     console.log('deleteCurrentNote called, currentNoteIdRef.current:', currentNoteIdRef.current)
@@ -659,25 +682,27 @@ const App: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
-  // Poll model status and listen for download progress
+  // Poll initialization status and listen for download progress
   useEffect(() => {
-    const pollModelStatus = async () => {
+    const pollInitStatus = async () => {
       try {
-        const status = await (window as any).electronAPI?.transcriptionGetModelStatus()
+        const status = await (window as any).electronAPI?.transcriptionGetInitStatus()
         if (status) {
-          setModelReady(status.ready)
-          setModelDownloadProgress(status.progress)
+          setModelReady(status.modelReady)
+          setModelDownloadProgress(status.downloadProgress)
+          setWorkerReady(status.workerReady)
+          setWorkerError(status.workerError)
         }
       } catch (error) {
-        console.error('Failed to poll model status:', error)
+        console.error('Failed to poll init status:', error)
       }
     }
 
     // Poll every 2 seconds
-    const interval = setInterval(pollModelStatus, 2000)
+    const interval = setInterval(pollInitStatus, 2000)
 
     // Initial poll
-    pollModelStatus()
+    pollInitStatus()
 
     // Listen for progress updates
     let cleanup: (() => void) | undefined
@@ -787,6 +812,7 @@ const App: React.FC = () => {
               title="Processing session transcript..."
             />
           )}
+          {/* Transcription system status indicators */}
           {!modelReady && modelDownloadProgress < 100 && (
             <span
               style={{
@@ -797,7 +823,46 @@ const App: React.FC = () => {
               }}
               title={`Downloading speech model... ${modelDownloadProgress}%`}
             >
-              ⬇ {modelDownloadProgress}%
+              Downloading model... {modelDownloadProgress}%
+            </span>
+          )}
+          {modelReady && !workerReady && !workerError && !isRestartingWorker && (
+            <span
+              style={{
+                marginLeft: '8px',
+                fontSize: '10px',
+                color: '#666',
+                fontStyle: 'italic'
+              }}
+              title="Starting audio system..."
+            >
+              Starting audio...
+            </span>
+          )}
+          {isRestartingWorker && (
+            <span
+              style={{
+                marginLeft: '8px',
+                fontSize: '10px',
+                color: '#007AFF',
+                fontStyle: 'italic'
+              }}
+            >
+              Restarting audio...
+            </span>
+          )}
+          {workerError && !isRestartingWorker && (
+            <span
+              style={{
+                marginLeft: '8px',
+                fontSize: '10px',
+                color: '#FF3B30',
+                cursor: 'pointer'
+              }}
+              onClick={handleRestartWorker}
+              title={`Error: ${workerError}\nClick to retry`}
+            >
+              Audio failed - Retry
             </span>
           )}
         </div>

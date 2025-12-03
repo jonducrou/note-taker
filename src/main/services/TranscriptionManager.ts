@@ -1,4 +1,4 @@
-import { fork, spawn, ChildProcess, exec } from 'child_process';
+import { spawn, ChildProcess, exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -8,7 +8,6 @@ import * as os from 'os';
 import type {
   TranscriptionStatus,
   TranscriptionSnippetEvent,
-  TranscriptionSessionEvent,
   TranscriptionConfig,
   DeviceConnectionState
 } from '../../types';
@@ -30,6 +29,7 @@ export class TranscriptionManager {
   private modelReady = false;
   private downloadProgress = 0;
   private downloadError: string | null = null;
+  private workerInitError: string | null = null;
   private progressCallback: ((progress: number) => void) | null = null;
   private connectionStateCallback: ((state: DeviceConnectionState, attempt?: number, maxAttempts?: number) => void) | null = null;
 
@@ -99,6 +99,7 @@ export class TranscriptionManager {
       this.initializeWorker().catch((error) => {
         console.error('[TranscriptionManager] Worker initialization failed:', error);
         this.workerReady = false;
+        this.workerInitError = error.message || 'Worker initialization failed';
       });
     }
   }
@@ -138,6 +139,7 @@ export class TranscriptionManager {
     this.initializeWorker().catch((error) => {
       console.error('[TranscriptionManager] Worker initialization failed after download:', error);
       this.workerReady = false;
+      this.workerInitError = error.message || 'Worker initialization failed';
     });
   }
 
@@ -155,15 +157,22 @@ export class TranscriptionManager {
 
     // Use system node instead of Electron's node
     // 'node' will use PATH to find the system Node.js installation
-    this.worker = spawn('node', [workerPath], {
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-      env: {
-        ...process.env,
-        NODE_ENV: 'production'
-      },
-      cwd: process.cwd(),
-      shell: false
-    }) as ChildProcess;
+    try {
+      this.worker = spawn('node', [workerPath], {
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+        env: {
+          ...process.env,
+          NODE_ENV: 'production'
+        },
+        cwd: process.cwd(),
+        shell: false
+      }) as ChildProcess;
+    } catch (error: any) {
+      const errorMsg = `Failed to spawn worker: ${error.message || error}`;
+      console.error('[TranscriptionManager]', errorMsg);
+      this.workerInitError = errorMsg;
+      throw new Error(errorMsg);
+    }
 
     // Pipe worker stdout/stderr to console and file
     const logPath = path.join(os.homedir(), 'worker-error.log');
@@ -382,7 +391,8 @@ export class TranscriptionManager {
       return;
     }
 
-    const snippetEvent: TranscriptionSnippetEvent = {
+    // Type check the event data (unused but validates structure)
+    const _snippetEvent: TranscriptionSnippetEvent = {
       text: event.text,
       source: event.source,
       confidence: event.confidence,
@@ -391,6 +401,7 @@ export class TranscriptionManager {
       engine: 'vosk',
       type: 'snippet'
     };
+    void _snippetEvent; // Suppress unused warning
 
     const timestamp = new Date(event.timestamp).toISOString();
     const confidencePercent = ((event.confidence || 0) * 100).toFixed(0);
@@ -447,7 +458,33 @@ export class TranscriptionManager {
 
   async start(noteId: string): Promise<void> {
     if (!this.worker || !this.workerReady) {
-      throw new Error('Worker not initialized');
+      // Provide specific error messages based on what's wrong
+      if (!this.modelReady) {
+        const progress = this.downloadProgress;
+        throw new Error(
+          `Speech model is still downloading (${progress}%). ` +
+          'Recording will be available when download completes.'
+        );
+      }
+
+      if (this.downloadError) {
+        throw new Error(
+          `Model download failed: ${this.downloadError}. ` +
+          'Please check your internet connection and restart the app.'
+        );
+      }
+
+      if (this.workerInitError) {
+        throw new Error(
+          `Worker initialization failed: ${this.workerInitError}. ` +
+          'Please check if Node.js is installed or restart the app.'
+        );
+      }
+
+      throw new Error(
+        'Audio system failed to initialize. ' +
+        'Please restart the application or check ~/worker-error.log for details.'
+      );
     }
 
     if (this.status.isRecording || this.status.isInitializing) {
@@ -578,6 +615,70 @@ export class TranscriptionManager {
       progress: this.downloadProgress,
       error: this.downloadError
     };
+  }
+
+  /**
+   * Get detailed initialization status for debugging and UI
+   */
+  getInitializationStatus(): {
+    modelReady: boolean;
+    modelError: string | null;
+    workerReady: boolean;
+    workerError: string | null;
+    downloadProgress: number;
+  } {
+    return {
+      modelReady: this.modelReady,
+      modelError: this.downloadError,
+      workerReady: this.workerReady,
+      workerError: this.workerInitError,
+      downloadProgress: this.downloadProgress
+    };
+  }
+
+  /**
+   * Restart the worker process. Use when worker has crashed or failed to initialize.
+   * Returns true if restart was successful, false otherwise.
+   */
+  async restartWorker(): Promise<boolean> {
+    console.log('[TranscriptionManager] Restarting worker...');
+
+    // Can't restart if model isn't ready
+    if (!this.modelReady) {
+      console.warn('[TranscriptionManager] Cannot restart worker - model not ready');
+      return false;
+    }
+
+    // Can't restart while recording
+    if (this.status.isRecording || this.status.isInitializing) {
+      console.warn('[TranscriptionManager] Cannot restart worker while recording');
+      return false;
+    }
+
+    // Kill existing worker if any
+    if (this.worker) {
+      try {
+        this.worker.kill();
+      } catch (e) {
+        // Ignore kill errors
+      }
+      this.worker = null;
+    }
+
+    // Clear error state
+    this.workerReady = false;
+    this.workerInitError = null;
+
+    // Try to reinitialize
+    try {
+      await this.initializeWorker();
+      console.log('[TranscriptionManager] Worker restarted successfully');
+      return true;
+    } catch (error: any) {
+      console.error('[TranscriptionManager] Worker restart failed:', error);
+      this.workerInitError = error.message || 'Restart failed';
+      return false;
+    }
   }
 
   setModelProgressCallback(callback: (progress: number) => void): void {

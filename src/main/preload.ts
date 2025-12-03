@@ -131,6 +131,20 @@ const electronAPI = {
     return ipcRenderer.invoke('transcription-get-model-status')
   },
 
+  transcriptionGetInitStatus: (): Promise<{
+    modelReady: boolean
+    modelError: string | null
+    workerReady: boolean
+    workerError: string | null
+    downloadProgress: number
+  }> => {
+    return ipcRenderer.invoke('transcription-get-init-status')
+  },
+
+  transcriptionRestartWorker: (): Promise<boolean> => {
+    return ipcRenderer.invoke('transcription-restart-worker')
+  },
+
   onModelDownloadProgress: (callback: (progress: number) => void) => {
     ipcRenderer.on('model-download-progress', (_event, progress) => callback(progress))
     return () => ipcRenderer.removeAllListeners('model-download-progress')

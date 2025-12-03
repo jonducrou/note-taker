@@ -86,5 +86,9 @@ src/
 - **Format**: YAML frontmatter + markdown content
 - **Metadata**: Extracted from inline `#group` and `@audience:` tags
 
+## Commit Messages
+- NEVER include URLs or email addresses in commit messages
+- Co-authored lines should not include emails (use `Co-Authored-By: Claude` without email)
+
 ## Decisions Reference
 See `DECISIONS.md` for architectural decisions and rejected approaches. Check this before attempting solutions to avoid repeating approaches that didn't work.

@@ -77,7 +77,8 @@ audience:
       expect(result[0].actions[0].text).toBe('Sarah: Review roadmap')
       expect(result[0].actions[0].completed).toBe(false)
       expect(result[0].connections).toHaveLength(1)
-      expect(result[0].connections[0].subject).toBe('Bob needs approval')
+      // Full connection text is now stored including both sides of arrow
+      expect(result[0].connections[0].subject).toBe('Sarah -> Bob needs approval')
     })
 
     it('should filter out notes older than 30 days', async () => {
@@ -249,19 +250,20 @@ Subject <x- Left complete
       expect(result).toHaveLength(1)
       expect(result[0].connections).toHaveLength(4)
 
-      const rightIncomplete = result[0].connections.find(c => c.subject === 'Right incomplete')
+      // Full connection text is now stored including both sides of arrow
+      const rightIncomplete = result[0].connections.find(c => c.subject === 'Subject -> Right incomplete')
       expect(rightIncomplete?.direction).toBe('right')
       expect(rightIncomplete?.completed).toBe(false)
 
-      const rightComplete = result[0].connections.find(c => c.subject === 'Right complete')
+      const rightComplete = result[0].connections.find(c => c.subject === 'Subject -x> Right complete')
       expect(rightComplete?.direction).toBe('right')
       expect(rightComplete?.completed).toBe(true)
 
-      const leftIncomplete = result[0].connections.find(c => c.subject === 'Left incomplete')
+      const leftIncomplete = result[0].connections.find(c => c.subject === 'Subject <- Left incomplete')
       expect(leftIncomplete?.direction).toBe('left')
       expect(leftIncomplete?.completed).toBe(false)
 
-      const leftComplete = result[0].connections.find(c => c.subject === 'Left complete')
+      const leftComplete = result[0].connections.find(c => c.subject === 'Subject <x- Left complete')
       expect(leftComplete?.direction).toBe('left')
       expect(leftComplete?.completed).toBe(true)
     })
@@ -290,6 +292,89 @@ audience:
 
       expect(result).toHaveLength(1)
       expect(result[0].noteTitle).toBe('#Test @Sarah')
+    })
+
+    it('should exclude note when excludeNoteId is provided', async () => {
+      const today = new Date()
+      const todayStr = today.toISOString()
+      const todayDate = today.toISOString().split('T')[0]
+
+      mockFs.access.mockResolvedValue(undefined)
+      mockFs.readdir.mockResolvedValue(['note1.md', 'note2.md', 'note3.md'] as any)
+
+      mockFs.readFile
+        .mockResolvedValueOnce(`---
+date: '${todayDate}'
+created_at: '${todayStr}'
+updated_at: '${todayStr}'
+audience:
+  - Sarah
+---
+
+#Note1 @Sarah
+[] Task 1
+`)
+        .mockResolvedValueOnce(`---
+date: '${todayDate}'
+created_at: '${todayStr}'
+updated_at: '${todayStr}'
+audience:
+  - Sarah
+---
+
+#Note2 @Sarah
+[] Task 2
+`)
+        .mockResolvedValueOnce(`---
+date: '${todayDate}'
+created_at: '${todayStr}'
+updated_at: '${todayStr}'
+audience:
+  - Sarah
+---
+
+#Note3 @Sarah
+[] Task 3
+`)
+
+      // Exclude note2.md from results
+      const result = await fileStorage.getRelatedActionItems(['Sarah'], 30, 'note2.md')
+
+      expect(result).toHaveLength(2)
+      expect(result.find(r => r.noteId === 'note1.md')).toBeDefined()
+      expect(result.find(r => r.noteId === 'note2.md')).toBeUndefined()
+      expect(result.find(r => r.noteId === 'note3.md')).toBeDefined()
+    })
+
+    it('should capture full multi-word connection text', async () => {
+      const today = new Date()
+      const todayStr = today.toISOString()
+      const todayDate = today.toISOString().split('T')[0]
+
+      mockFs.access.mockResolvedValue(undefined)
+      mockFs.readdir.mockResolvedValue(['note.md'] as any)
+
+      mockFs.readFile.mockResolvedValueOnce(`---
+date: '${todayDate}'
+created_at: '${todayStr}'
+updated_at: '${todayStr}'
+audience:
+  - Sarah
+---
+
+#Test @Sarah
+Jon Smith -> Sarah Jones for review
+Alice from Marketing <- Bob from Engineering
+`)
+
+      const result = await fileStorage.getRelatedActionItems(['Sarah'])
+
+      expect(result).toHaveLength(1)
+      expect(result[0].connections).toHaveLength(2)
+
+      // Full multi-word text should be captured on both sides of arrow
+      expect(result[0].connections[0].subject).toBe('Jon Smith -> Sarah Jones for review')
+      expect(result[0].connections[1].subject).toBe('Alice from Marketing <- Bob from Engineering')
     })
   })
 })

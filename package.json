@@ -1,6 +1,6 @@
 {
   "name": "note-taker",
-  "version": "2.2.8",
+  "version": "2.2.9",
   "description": "Minimalist always-on-top note taking app",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -70,6 +70,7 @@
     "asarUnpack": [
       "**/node_modules/ts-audio-transcriber/**/*",
       "**/node_modules/vosk-koffi/**/*",
+      "**/node_modules/koffi/**/*",
       "**/node_modules/screencapturekit/**/*",
       "**/node_modules/node-record-lpcm16/**/*",
       "dist/main/main/audio-worker.mjs"

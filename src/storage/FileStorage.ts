@@ -722,11 +722,14 @@ export class FileStorage {
     const connections: RelatedConnection[] = []
 
     lines.forEach((line, index) => {
-      // Match incomplete forward connections: ->
-      const incompleteForward = line.match(/(\w+)\s*->\s*(.+)/)
+      const trimmedLine = line.trim()
+
+      // Match incomplete forward connections: anything -> anything
+      // Capture the full text on each side of the arrow
+      const incompleteForward = trimmedLine.match(/^(.+?)\s*->\s*(.+)$/)
       if (incompleteForward) {
         connections.push({
-          subject: incompleteForward[2].trim(),
+          subject: `${incompleteForward[1].trim()} -> ${incompleteForward[2].trim()}`,
           direction: 'right',
           completed: false,
           lineNumber: index + 1
@@ -735,10 +738,10 @@ export class FileStorage {
       }
 
       // Match completed forward connections: -x>
-      const completedForward = line.match(/(\w+)\s*-[xX]>\s*(.+)/)
+      const completedForward = trimmedLine.match(/^(.+?)\s*-[xX]>\s*(.+)$/)
       if (completedForward) {
         connections.push({
-          subject: completedForward[2].trim(),
+          subject: `${completedForward[1].trim()} -x> ${completedForward[2].trim()}`,
           direction: 'right',
           completed: true,
           lineNumber: index + 1
@@ -747,10 +750,10 @@ export class FileStorage {
       }
 
       // Match incomplete backward connections: <-
-      const incompleteBackward = line.match(/(\w+)\s*<-\s*(.+)/)
+      const incompleteBackward = trimmedLine.match(/^(.+?)\s*<-\s*(.+)$/)
       if (incompleteBackward) {
         connections.push({
-          subject: incompleteBackward[2].trim(),
+          subject: `${incompleteBackward[1].trim()} <- ${incompleteBackward[2].trim()}`,
           direction: 'left',
           completed: false,
           lineNumber: index + 1
@@ -759,10 +762,10 @@ export class FileStorage {
       }
 
       // Match completed backward connections: <x-
-      const completedBackward = line.match(/(\w+)\s*<[xX]-\s*(.+)/)
+      const completedBackward = trimmedLine.match(/^(.+?)\s*<[xX]-\s*(.+)$/)
       if (completedBackward) {
         connections.push({
-          subject: completedBackward[2].trim(),
+          subject: `${completedBackward[1].trim()} <x- ${completedBackward[2].trim()}`,
           direction: 'left',
           completed: true,
           lineNumber: index + 1
@@ -798,7 +801,7 @@ export class FileStorage {
    * @param days - Number of days to look back (default: 30)
    * @returns Array of RelatedAction objects
    */
-  async getRelatedActionItems(audience: string[], days: number = 30): Promise<RelatedAction[]> {
+  async getRelatedActionItems(audience: string[], days: number = 30, excludeNoteId?: string): Promise<RelatedAction[]> {
     if (!audience || audience.length === 0) {
       return []
     }
@@ -808,6 +811,11 @@ export class FileStorage {
     const relatedActions: RelatedAction[] = []
 
     for (const note of allNotes) {
+      // Skip the current note
+      if (excludeNoteId && note.id === excludeNoteId) {
+        continue
+      }
+
       // Skip notes older than the cutoff
       const noteDate = new Date(note.metadata.created_at || note.metadata.date)
       if (noteDate.getTime() < cutoffDate) {

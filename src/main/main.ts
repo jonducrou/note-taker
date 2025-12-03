@@ -600,9 +600,9 @@ ipcMain.handle('get-recent-audience-suggestions', async (_event, prefix?: string
   return await fileStorage.getRecentAudienceSuggestions(prefix)
 })
 
-ipcMain.handle('get-related-actions', async (_event, audience: string[], days?: number) => {
+ipcMain.handle('get-related-actions', async (_event, audience: string[], days?: number, excludeNoteId?: string) => {
   try {
-    return await fileStorage.getRelatedActionItems(audience, days)
+    return await fileStorage.getRelatedActionItems(audience, days, excludeNoteId)
   } catch (error) {
     console.error('Failed to get related actions:', error)
     return []

@@ -47,8 +47,8 @@ const electronAPI = {
     return ipcRenderer.invoke('get-recent-audience-suggestions', prefix)
   },
 
-  getRelatedActions: (audience: string[], days?: number): Promise<RelatedAction[]> => {
-    return ipcRenderer.invoke('get-related-actions', audience, days)
+  getRelatedActions: (audience: string[], days?: number, excludeNoteId?: string): Promise<RelatedAction[]> => {
+    return ipcRenderer.invoke('get-related-actions', audience, days, excludeNoteId)
   },
 
 

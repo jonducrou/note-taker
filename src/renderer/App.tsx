@@ -69,20 +69,21 @@ const App: React.FC = () => {
 
   // Extract audience members from content (only user content, not aggregated section)
   const extractAudience = (content: string): string[] => {
-    // Only extract from user content - before the aggregation separator
+    // Only extract from the FIRST LINE of user content (before the aggregation separator)
     const userContent = content.split('--------')[0]
+    const firstLine = userContent.split('\n')[0] || ''
     const audience: Set<string> = new Set()
 
-    // Look for @audience: format (comma-separated)
-    const audienceMatch = userContent.match(/@audience:([^\n]+)/)
+    // Look for @audience: format (comma-separated) - only on first line
+    const audienceMatch = firstLine.match(/@audience:([^\n]+)/)
     if (audienceMatch) {
       const members = audienceMatch[1].split(',').map(m => m.trim()).filter(m => m.length > 0)
       members.forEach(m => audience.add(m))
     }
 
-    // Also look for standalone @ tags - only at start of line or after whitespace
+    // Also look for standalone @ tags - only on first line
     // This prevents matching @ in email addresses or mid-word
-    const atMatches = userContent.matchAll(/(?:^|[\s])@([a-zA-Z][a-zA-Z0-9_-]*)/gm)
+    const atMatches = firstLine.matchAll(/(?:^|[\s])@([a-zA-Z][a-zA-Z0-9_-]*)/gm)
     for (const match of atMatches) {
       // Skip "audience" since it's handled above
       if (match[1].toLowerCase() !== 'audience') {
@@ -130,11 +131,10 @@ const App: React.FC = () => {
         formatted += `[] ${action.text}\n`
       }
 
-      // Add incomplete connections
+      // Add incomplete connections (subject already contains the full "A -> B" text)
       const incompleteConnections = related.connections.filter((c: any) => !c.completed)
       for (const conn of incompleteConnections) {
-        const arrow = conn.direction === 'right' ? '->' : '<-'
-        formatted += `${conn.subject} ${arrow}\n`
+        formatted += `${conn.subject}\n`
       }
 
       formatted += '\n'
@@ -231,7 +231,7 @@ const App: React.FC = () => {
     // Debounce aggregation by 500ms
     aggregationTimeoutRef.current = setTimeout(async () => {
       try {
-        const relatedActions = await (window as any).electronAPI?.getRelatedActions(audience, 30)
+        const relatedActions = await (window as any).electronAPI?.getRelatedActions(audience, 30, currentNoteIdRef.current)
 
         if (!relatedActions || relatedActions.length === 0) {
           // No related actions, clear aggregation

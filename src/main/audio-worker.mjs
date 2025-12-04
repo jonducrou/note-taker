@@ -133,6 +133,14 @@ function saveFallbackData(type, data) {
 // Send message back to main process
 function sendMessage(type, data) {
   console.log(`[Worker] sendMessage called: type=${type}, sessionId=${data?.sessionId || 'none'}`);
+
+  // Check if process.send exists
+  if (typeof process.send !== 'function') {
+    console.error(`[Worker] process.send is not a function! Running standalone?`);
+    console.error(`[Worker] process.send type:`, typeof process.send);
+    return;
+  }
+
   try {
     process.send({ type, data });
     console.log(`[Worker] Message sent successfully: ${type}`);
@@ -144,7 +152,13 @@ function sendMessage(type, data) {
       dumpLogs('IPC disconnected - EPIPE');
       process.exit(0);  // Graceful exit
     } else {
-      console.error(`[Worker] Failed to send message:`, error);
+      console.error(`[Worker] Failed to send message:`, {
+        errorMessage: error?.message,
+        errorName: error?.name,
+        errorStack: error?.stack,
+        errorCode: error?.code,
+        fullError: error
+      });
     }
   }
 }

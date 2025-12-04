@@ -135,6 +135,20 @@ npm run test:coverage # Full coverage report
 npm run test:all      # Run all tests including integration
 ```
 
+## Debugging & Troubleshooting
+
+Worker logs are automatically created in `~/Documents/Notes/worker-log-*.log` for debugging audio transcription issues.
+
+```bash
+# View most recent worker log
+ls -lt ~/Documents/Notes/worker-log-*.log | head -1 | xargs cat
+
+# Check for errors
+grep -i "error\|fail" ~/Documents/Notes/worker-log-*.log
+```
+
+See `DEBUGGING.md` for comprehensive troubleshooting guide.
+
 ## Architecture
 
 - **Frontend**: React + TypeScript + Monaco Editor

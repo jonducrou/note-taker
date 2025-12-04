@@ -92,3 +92,6 @@ src/
 
 ## Decisions Reference
 See `DECISIONS.md` for architectural decisions and rejected approaches. Check this before attempting solutions to avoid repeating approaches that didn't work.
+
+## Debugging Reference
+See `DEBUGGING.md` for comprehensive debugging guide. Worker logs are located in `~/Documents/Notes/worker-log-*.log`. Always check recent worker logs when investigating audio transcription issues.

@@ -2,8 +2,6 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { createWriteStream, createReadStream } from 'fs';
-import { pipeline } from 'stream/promises';
-import { createGunzip } from 'zlib';
 import { Extract } from 'unzipper';
 import https from 'https';
 

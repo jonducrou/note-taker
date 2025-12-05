@@ -1,7 +1,5 @@
 import { FileStorage } from '../storage/FileStorage'
 import { promises as fs } from 'fs'
-import { join } from 'path'
-import { homedir } from 'os'
 
 // Mock fs and os modules
 jest.mock('fs', () => ({

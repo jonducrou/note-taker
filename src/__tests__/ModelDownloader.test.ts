@@ -62,11 +62,9 @@ jest.mock('zlib', () => ({
 }))
 
 import * as fs from 'fs/promises'
-import * as os from 'os'
 import { ModelDownloader } from '../main/services/ModelDownloader'
 
 const mockFs = fs as jest.Mocked<typeof fs>
-const mockOs = os as jest.Mocked<typeof os>
 
 describe('ModelDownloader', () => {
   let downloader: ModelDownloader
@@ -216,8 +214,9 @@ describe('ModelDownloader', () => {
         close: jest.fn()
       })
 
-      mockHttpsGet.mockImplementationOnce((_url: string, callback: (res: any) => void) => {
-        const mockResponse = {
+      mockHttpsGet.mockImplementationOnce((_url: string, callback: (res: unknown) => void) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mockResponse: any = {
           statusCode: 200,
           headers: { 'content-length': '1000' },
           on: jest.fn((event: string, handler: (chunk: Buffer) => void) => {

@@ -1,13 +1,15 @@
 import { FileStorage } from '../storage/FileStorage'
-import { Note } from '../types'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MockNote = any // Test mock notes don't match production Note structure
 
 describe('FileStorage Navigation', () => {
   let fileStorage: FileStorage
-  let mockNotes: Note[]
-  
+  let mockNotes: MockNote[]
+
   beforeEach(() => {
     jest.clearAllMocks()
-    fileStorage = new FileStorage('/mock/notes')
+    fileStorage = new FileStorage()
     
     // Create mock notes with different update times
     // Note: Notes are sorted by updatedAt DESC (newest first)
@@ -141,13 +143,13 @@ describe('FileStorage Navigation', () => {
           updatedAt: new Date('2024-08-26T15:00:00Z'), // Same update time
           filePath: '/mock/notes/2024-08-26_1400.md'
         }
-      ]
+      ] as MockNote[]
 
       jest.spyOn(fileStorage, 'loadNotes').mockResolvedValue(sameTimeNotes)
 
       const nextId = await fileStorage.getNextNoteId('2024-08-26_1500')
       const prevId = await fileStorage.getPreviousNoteId('2024-08-26_1400')
-      
+
       // Should still navigate predictably based on array position
       expect(nextId).toBe('2024-08-26_1400')
       expect(prevId).toBe('2024-08-26_1500')
@@ -199,7 +201,7 @@ describe('FileStorage Navigation', () => {
   })
 
   describe('getNextNoteId with skipNotesWithoutOpenActions', () => {
-    let notesWithActions: Note[]
+    let notesWithActions: MockNote[]
 
     beforeEach(() => {
       // Create notes with varying content - some with actions, some without
@@ -276,7 +278,7 @@ describe('FileStorage Navigation', () => {
     })
 
     it('should handle case when no notes have open actions', async () => {
-      const notesWithoutActions = [
+      const notesWithoutActions: MockNote[] = [
         {
           id: '2024-08-26_1500',
           content: 'No actions here\n[x] Completed task',
@@ -306,7 +308,7 @@ describe('FileStorage Navigation', () => {
   })
 
   describe('getPreviousNoteId with skipNotesWithoutOpenActions', () => {
-    let notesWithActions: Note[]
+    let notesWithActions: MockNote[]
 
     beforeEach(() => {
       // Same test data as getNextNoteId tests
@@ -389,7 +391,7 @@ describe('FileStorage Navigation', () => {
     })
 
     it('should handle case when no notes have open actions', async () => {
-      const notesWithoutActions = [
+      const notesWithoutActions: MockNote[] = [
         {
           id: '2024-08-26_1500',
           content: 'No actions here\n[x] Completed task',

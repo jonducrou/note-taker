@@ -30,7 +30,6 @@ jest.mock('os', () => ({
 
 // Get mocked functions after mocking
 const mockWriteFileSync = jest.requireMock('fs').writeFileSync as jest.Mock
-const mockHomedir = jest.requireMock('os').homedir as jest.Mock
 
 describe('Audio Worker Utilities', () => {
   beforeEach(() => {

@@ -1,37 +1,3 @@
-export interface Note {
-  id: string
-  content: string
-  group?: string
-  audience: string[]
-  createdAt: Date
-  updatedAt: Date
-  filePath: string
-}
-
-export interface ActionItem {
-  text: string
-  completed: boolean
-  noteId: string
-  line: number
-}
-
-export interface Connection {
-  from: string
-  to: string
-  completed: boolean
-  noteId: string
-  line: number
-  direction: 'forward' | 'backward'
-}
-
-export interface NoteMetadata {
-  group?: string
-  audience: string[]
-  hasIncompleteActions: boolean
-  hasIncompleteConnections: boolean
-  incompleteCount: number
-}
-
 // Transcription types
 export type DeviceConnectionState = 'connected' | 'disconnected' | 'reconnecting' | 'failed'
 
@@ -57,22 +23,6 @@ export interface TranscriptionSnippetEvent {
   snippetIndex: number
   engine: 'vosk'
   type: 'snippet'
-}
-
-export interface TranscriptionSessionEvent {
-  text: string
-  source: 'microphone' | 'system-audio'
-  confidence: number
-  timestamp: number
-  sessionId: string
-  isComplete: boolean
-  engine: 'vosk'
-  type: 'session'
-  metadata: {
-    duration: number
-    wordCount: number
-    processingTime: number
-  }
 }
 
 export interface TranscriptionPermissions {

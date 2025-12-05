@@ -830,26 +830,29 @@ const App: React.FC = () => {
             <span
               style={{
                 marginLeft: '8px',
-                fontSize: '10px',
-                color: '#666',
-                fontStyle: 'italic'
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#FFCC00',
+                animation: 'pulse 1.5s ease-in-out infinite'
               }}
               title="Starting audio system..."
-            >
-              Starting audio...
-            </span>
+            />
           )}
           {isRestartingWorker && (
             <span
               style={{
                 marginLeft: '8px',
-                fontSize: '10px',
-                color: '#007AFF',
-                fontStyle: 'italic'
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#007AFF',
+                animation: 'pulse 1.5s ease-in-out infinite'
               }}
-            >
-              Restarting audio...
-            </span>
+              title="Restarting audio system..."
+            />
           )}
           {workerError && !isRestartingWorker && (
             <span

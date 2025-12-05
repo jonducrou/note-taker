@@ -40,6 +40,17 @@
 - **Rationale**: Natural interaction model, visual feedback
 - **Alternative Considered**: Keyboard shortcuts only (rejected as less discoverable)
 
+### **Pulsing Dot Status Indicators** ✅ CHOSEN (v2.2.10)
+**Why**: Consistent, minimal UI feedback without text clutter
+- **Implementation**: Colour-coded 8px pulsing dots for audio system states:
+  - 🟡 Yellow: Audio system starting (worker initialising)
+  - 🔵 Blue: Audio system restarting
+  - 🔴 Red: Recording active
+  - ⚫ Grey: Idle/ready
+- **Rationale**: Dots are consistent across all states; text labels ("Starting audio...") broke visual consistency
+- **Previous Approach**: Text labels for some states, dots for others (inconsistent)
+- **Alternative Considered**: Text-only status (rejected as visually cluttered and inconsistent)
+
 ## 🔧 Technical Implementation Decisions
 
 ### **Custom Monaco Language ('notes')** ✅ CHOSEN
@@ -262,6 +273,27 @@
 **Attempted**: Detailed GitHub forms with multiple required fields
 **Problem**: Too time-consuming, discourages quick bug reports
 **Solution**: Streamlined to essential information only
+
+### **Build Artifact Caching** ❌ CRITICAL ISSUE → ✅ FIXED (v2.2.10)
+**Problem**: Stale code in dist/ and release/ folders caused distribution packages to contain old code
+**Symptoms**:
+- Yellow "starting audio" dot stuck permanently in distributed app
+- "Audio failed - retry" errors appearing in installed version
+- Features working in dev mode but not in packaged app
+- Confusion about whether dist version matched source code
+**Root Cause**:
+- `npm run build` did not clean dist/ folder before rebuilding
+- `npm run dist` did not clean release/ folder before packaging
+- Old compiled files persisted and were packaged instead of newly compiled code
+**Solution Applied**: Added automatic cleanup to build scripts in package.json:
+```json
+"clean": "rm -rf dist release",
+"clean:dist": "rm -rf dist",
+"build": "npm run clean:dist && npm run build:main && npm run build:renderer",
+"dist": "rm -rf release && electron-builder",
+```
+**Lesson**: Always clean build artifacts before rebuilding to ensure consistent, predictable builds
+**Debugging Tip**: When dist version behaves differently from dev, first verify builds are clean by manually deleting dist/ and release/ folders
 
 ### **Separate Command Window** ❌ REJECTED  
 **Attempted**: Dedicated command window for navigation

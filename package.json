@@ -13,10 +13,10 @@
     "dist": "electron-builder",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts TranscriptionManager.test.ts audio-worker-utils.test.ts ModelDownloader.test.ts PermissionsService.test.ts ZoomDetectionService.test.ts",
+    "test": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts TranscriptionManager.test.ts audio-worker-utils.test.ts ModelDownloader.test.ts PermissionsService.test.ts",
     "test:all": "jest",
     "test:watch": "jest --watch FileStorage.test.ts basic.test.ts",
-    "test:coverage": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts TranscriptionManager.test.ts audio-worker-utils.test.ts ModelDownloader.test.ts PermissionsService.test.ts ZoomDetectionService.test.ts --coverage",
+    "test:coverage": "jest FileStorage.test.ts basic.test.ts FileStorage.comprehensive.test.ts ipc-handlers.unit.test.ts TranscriptionManager.test.ts audio-worker-utils.test.ts ModelDownloader.test.ts PermissionsService.test.ts --coverage",
     "postinstall": "patch-package"
   },
   "keywords": [

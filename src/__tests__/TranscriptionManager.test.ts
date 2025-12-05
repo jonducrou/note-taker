@@ -760,4 +760,5 @@ describe('TranscriptionManager', () => {
       expect(success).toBe(false)
     })
   })
+
 })

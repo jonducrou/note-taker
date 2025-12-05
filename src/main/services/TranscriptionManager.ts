@@ -47,7 +47,17 @@ export class TranscriptionManager {
   private newestNoteId: string | null = null;
   private finishedRecordings = new Set<string>(); // Notes that have permanently stopped recording
   private graceTimer: NodeJS.Timeout | null = null;
-  private readonly GRACE_PERIOD_MS = 25000; // 25 seconds for testing
+
+  /**
+   * GRACE_PERIOD_MS: Time to wait before stopping recording when user navigates away.
+   * This is NOT the same as SESSION_TIMEOUT_MS (60s) in audio-worker-utils.ts.
+   *
+   * - Grace Period (25s): User navigation delay before recording stops
+   * - Session Timeout (60s): Processing timeout when stop() is called
+   *
+   * The grace period allows users to briefly check other notes without losing their recording.
+   */
+  private readonly GRACE_PERIOD_MS = 25000;
 
   constructor() {
     // Default configuration using Vosk only

@@ -205,7 +205,8 @@
 **Why**: Keeps repository and distributable size minimal
 - **Implementation**: ModelDownloader service checks and downloads model on first initialization
 - **Benefit**: ~40MB model not stored in git or DMG, downloaded only when needed
-- **Location**: Downloaded to `models/vosk-model-en-us-0.22` relative to app
+- **Location**: Downloaded to `~/Library/Application Support/Note Taker/models/vosk-model-en-us-0.22`
+- **Rationale**: Application Support directory survives app updates and is the standard macOS location for user data
 - **Alternative Considered**: Bundling model (rejected due to size)
 
 ### **Dual Output Files (.snippet + .transcription)** ✅ CHOSEN
@@ -240,6 +241,7 @@
 - Too many dependencies and failure points
 **Solution**: Simplified to newest-note strategy with manual control via note creation
 **Lesson**: External triggers add complexity; align with existing user workflows instead
+**Cleanup (v2.2.10)**: Removed ZoomDetectionService.ts as dead code - was never integrated into main.ts
 
 ### **Initial Complex UI Approach** ❌ REJECTED
 **Attempted**: Traditional form-based interface with separate fields

@@ -320,6 +320,16 @@ export function filterSnippet(event: SnippetEvent): { skip: boolean; reason?: st
 // Stop Timeout Handler
 // ============================================================
 
+/**
+ * SESSION_TIMEOUT_MS: Maximum time to wait for transcription processing when stop() is called.
+ * This is NOT the same as the grace period (25s) in TranscriptionManager.
+ *
+ * - Grace Period (25s): How long to wait before stopping recording when user navigates away
+ * - Session Timeout (60s): How long to wait for Vosk to finish processing audio after stop is requested
+ *
+ * The session timeout is longer because large audio files can take time to process.
+ * If this timeout is exceeded, we fall back to using accumulated snippets instead of full transcript.
+ */
 export const SESSION_TIMEOUT_MS = 60000
 
 export async function stopWithTimeout<T>(

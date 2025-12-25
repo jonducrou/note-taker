@@ -12,9 +12,7 @@ let package = Package(
             targets: ["NoteTaker"]
         )
     ],
-    dependencies: [
-        .package(url: "https://github.com/Kitura/Swift-SMTP.git", from: "6.0.0"),
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "NoteTaker",
@@ -23,7 +21,8 @@ let package = Package(
         ),
         .testTarget(
             name: "NoteTakerTests",
-            dependencies: ["NoteTaker"]
+            dependencies: ["NoteTaker"],
+            path: "Tests/NoteTakerTests"
         )
     ]
 )

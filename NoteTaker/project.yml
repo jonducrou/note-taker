@@ -1,0 +1,70 @@
+name: NoteTaker
+options:
+  bundleIdPrefix: com.notetaker
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+packages:
+  Yams:
+    url: https://github.com/jpsim/Yams
+    from: 5.0.0
+
+targets:
+  NoteTaker:
+    type: application
+    platform: macOS
+    sources:
+      - path: NoteTaker
+        excludes:
+          - "*.entitlements"
+    settings:
+      base:
+        INFOPLIST_FILE: NoteTaker/Info.plist
+        CODE_SIGN_ENTITLEMENTS: NoteTaker/NoteTaker.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.notetaker.app
+        PRODUCT_NAME: "Note Taker"
+        MARKETING_VERSION: "3.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+    dependencies:
+      - package: Yams
+    entitlements:
+      path: NoteTaker/NoteTaker.entitlements
+    info:
+      path: NoteTaker/Info.plist
+
+  NoteTakerTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: NoteTakerTests
+    dependencies:
+      - target: NoteTaker
+    settings:
+      base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Note Taker.app/Contents/MacOS/Note Taker"
+
+schemes:
+  NoteTaker:
+    build:
+      targets:
+        NoteTaker: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - NoteTakerTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

@@ -74,6 +74,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController?.onLeftClick = { [weak self] in
             self?.toggleMainWindow()
         }
+        statusBarController?.onPreferences = {
+            PreferencesWindowController.shared.showPreferences()
+        }
     }
 
     private func setupGlobalHotkey() {

@@ -5,9 +5,8 @@ struct NoteTakerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Empty settings scene - window is created manually in AppDelegate
         Settings {
-            EmptyView()
+            PreferencesView()
         }
         .commands {
             CommandGroup(replacing: .newItem) {

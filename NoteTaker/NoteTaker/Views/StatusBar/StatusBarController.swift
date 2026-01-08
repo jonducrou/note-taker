@@ -6,6 +6,7 @@ class StatusBarController: NSObject {
 
     var onLeftClick: (() -> Void)?
     var onNewNote: (() -> Void)?
+    var onPreferences: (() -> Void)?
     var onQuit: (() -> Void)?
 
     override init() {
@@ -103,6 +104,13 @@ class StatusBarController: NSObject {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Preferences
+        let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(preferencesClicked), keyEquivalent: ",")
+        prefsItem.target = self
+        menu.addItem(prefsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         // Quit
         let quitItem = NSMenuItem(title: "Quit Note Taker", action: #selector(quitClicked), keyEquivalent: "q")
         quitItem.target = self
@@ -149,6 +157,10 @@ class StatusBarController: NSObject {
         guard let noteId = sender.representedObject as? String else { return }
         NotificationCenter.default.post(name: .loadNote, object: noteId)
         onLeftClick?()
+    }
+
+    @objc private func preferencesClicked() {
+        onPreferences?()
     }
 
     @objc private func quitClicked() {

@@ -6,6 +6,11 @@ class NoteTextView: NSTextView {
     private var lastClickTime: Date = .distantPast
     private var lastClickLocation: Int = 0
 
+    // Autocomplete
+    private let autocompleteController = AutocompleteController()
+    private var triggerLocation: Int?
+    private var triggerType: AutocompleteController.TriggerType?
+
     override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
         super.init(frame: frameRect, textContainer: container)
         setup()
@@ -27,6 +32,121 @@ class NoteTextView: NSTextView {
         // Make editable and selectable
         isEditable = true
         isSelectable = true
+    }
+
+    // MARK: - Autocomplete
+
+    override func keyDown(with event: NSEvent) {
+        // Let autocomplete controller handle if visible
+        if autocompleteController.handleKeyDown(event) {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    func checkForAutocomplete() {
+        guard let selectedRange = selectedRanges.first as? NSRange,
+              selectedRange.length == 0 else {
+            hideAutocomplete()
+            return
+        }
+
+        let cursorLocation = selectedRange.location
+        guard cursorLocation > 0 else {
+            hideAutocomplete()
+            return
+        }
+
+        // Find trigger character (@/#) before cursor
+        let text = string as NSString
+        var searchLocation = cursorLocation - 1
+        var foundTrigger: (location: Int, type: AutocompleteController.TriggerType)?
+
+        // Search backwards for trigger
+        while searchLocation >= 0 {
+            let char = text.substring(with: NSRange(location: searchLocation, length: 1))
+
+            // Stop at whitespace or newline
+            if char == " " || char == "\n" || char == "\t" {
+                break
+            }
+
+            if char == "@" {
+                foundTrigger = (searchLocation, .audience)
+                break
+            } else if char == "#" {
+                foundTrigger = (searchLocation, .group)
+                break
+            }
+
+            searchLocation -= 1
+        }
+
+        guard let trigger = foundTrigger else {
+            hideAutocomplete()
+            return
+        }
+
+        // Extract prefix (text after trigger)
+        let prefixRange = NSRange(location: trigger.location + 1, length: cursorLocation - trigger.location - 1)
+        let prefix = text.substring(with: prefixRange)
+
+        // Store trigger info
+        triggerLocation = trigger.location
+        triggerType = trigger.type
+
+        // Fetch suggestions
+        Task { @MainActor in
+            let suggestions: [String]
+            if trigger.type == .group {
+                suggestions = await SuggestionFetcher.shared.fetchGroupSuggestions(prefix: prefix)
+            } else {
+                suggestions = await SuggestionFetcher.shared.fetchAudienceSuggestions(prefix: prefix)
+            }
+
+            guard !suggestions.isEmpty else {
+                hideAutocomplete()
+                return
+            }
+
+            // Get rect for popover positioning
+            let glyphRange = layoutManager?.glyphRange(forCharacterRange: NSRange(location: cursorLocation, length: 0), actualCharacterRange: nil) ?? NSRange()
+            var rect = layoutManager?.boundingRect(forGlyphRange: glyphRange, in: textContainer!) ?? .zero
+            rect.origin.x += textContainerInset.width
+            rect.origin.y += textContainerInset.height
+
+            autocompleteController.show(
+                suggestions: suggestions,
+                triggerType: trigger.type,
+                triggerLocation: trigger.location,
+                at: rect,
+                in: self,
+                onSelect: { [weak self] suggestion in
+                    self?.insertAutocomplete(suggestion)
+                }
+            )
+        }
+    }
+
+    private func insertAutocomplete(_ suggestion: String) {
+        guard let trigger = triggerLocation,
+              let selectedRange = selectedRanges.first as? NSRange else { return }
+
+        // Replace from trigger+1 to cursor with the suggestion
+        let replaceRange = NSRange(location: trigger + 1, length: selectedRange.location - trigger - 1)
+        replaceText(in: replaceRange, with: suggestion + " ")
+
+        // Move cursor after inserted text
+        let newLocation = trigger + 1 + suggestion.count + 1
+        setSelectedRange(NSRange(location: newLocation, length: 0))
+
+        hideAutocomplete()
+    }
+
+    func hideAutocomplete() {
+        autocompleteController.hide()
+        triggerLocation = nil
+        triggerType = nil
     }
 
     // MARK: - Syntax Highlighting

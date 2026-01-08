@@ -1,9 +1,33 @@
 # Note Taker App - Development Context
 
 ## Project Overview
-A minimalist, always-on-top note-taking application for Mac built with Electron + React + TypeScript. Features text-first design with smart syntax highlighting, completion tracking, and text-based commands.
+A minimalist, always-on-top note-taking application for Mac. Two versions exist:
+- **Swift version** (in `NoteTaker/`): Native macOS app with dual-source transcription
+- **Electron version** (legacy): React + TypeScript + Monaco Editor
 
-## Key Architecture Decisions
+## Swift Version (Active Development)
+
+### Technology Stack
+- **Framework**: SwiftUI + AppKit
+- **Speech**: SFSpeechRecognizer (mic) + SpeechAnalyzer (system audio)
+- **Audio Capture**: ScreenCaptureKit for system audio
+- **Storage**: Local markdown files with YAML frontmatter in `~/Documents/Notes`
+- **Dependencies**: Yams (YAML parsing)
+
+### Development Commands
+```bash
+cd NoteTaker
+swift build              # Debug build
+swift build -c release   # Release build
+.build/release/NoteTaker # Run release version
+```
+
+### Key Features
+- Dual-source transcription with speaker attribution ([You]/[Other])
+- LLM action extraction (actions, commitments, expectations)
+- Hybrid transcription: SFSpeechRecognizer + SpeechAnalyzer APIs
+
+## Electron Version (Legacy)
 
 ### Technology Stack
 - **Frontend**: React + TypeScript + Monaco Editor for rich text editing
@@ -41,37 +65,56 @@ Subject <- Subject (incomplete)
 Subject <x- Subject (completed)
 ```
 
-### File Structure
+### Swift File Structure
+```
+NoteTaker/NoteTaker/
+├── App/                    # AppDelegate, entry point
+├── Models/                 # Note, Action, Connection
+├── Services/
+│   ├── ActionExtraction/   # LLM action extraction
+│   ├── FileStorage/        # Markdown file operations
+│   ├── Transcription/      # Dual-source speech recognition
+│   └── System/             # Hotkey, permissions
+├── Views/                  # SwiftUI views
+└── ViewModels/             # State management
+```
+
+### Electron File Structure (Legacy)
 ```
 src/
 ├── main/           # Electron main process
-├── renderer/       # React UI components  
+├── renderer/       # React UI components
 ├── storage/        # File storage abstraction
 ├── types/          # TypeScript definitions
 └── utils/          # Utility functions
 ```
 
-## Completed Features
+## Completed Features (Swift Version)
 - ✅ Text-first minimalist UI with always-on-top window
 - ✅ Smart syntax highlighting for actions, connections, metadata
 - ✅ Click-to-complete functionality for actions and connections
-- ✅ Autocomplete for groups and audience members
+- ✅ Dual-source transcription (microphone + system audio)
+- ✅ Speaker attribution in transcripts ([You]/[Other])
+- ✅ LLM action extraction with importance ratings
 - ✅ Auto-save with markdown file generation
-- ✅ Text command system (/today, /recent, /search:, etc.)
-- ✅ System tray integration with automatic completion badge
-- ✅ Cross-note completion tracking and aggregation
-- ✅ Dynamic context menu with left-click/right-click separation
-- ✅ SVG-based tray icon with automatic PNG conversion
-- ✅ Comprehensive unit testing suite with Jest
+- ✅ System tray integration with menu bar icon
+- ✅ Global hotkey (Cmd+Shift+N)
+- ✅ Cross-note completion tracking
 
 ## Development Commands
+
+### Swift Version
+- `swift build` - Debug build
+- `swift build -c release` - Release build
+- `.build/release/NoteTaker` - Run release version
+
+### Electron Version (Legacy)
 - `npm run dev` - Development mode with hot reload
 - `npm run build` - Build production version
 - `npm run typecheck` - TypeScript type checking
 - `npm run lint` - ESLint code quality checks
 - `npm run test` - Run core unit tests
 - `npm run test:coverage` - Run tests with coverage report
-- `npx jest <file>` - Run a single test file (e.g., `npx jest FileStorage.test.ts`)
 - `npm run dist` - Create distributable package
 
 ## Testing

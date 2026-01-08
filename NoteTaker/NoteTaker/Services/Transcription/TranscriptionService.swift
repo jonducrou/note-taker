@@ -17,18 +17,32 @@ actor TranscriptionService {
 
     private(set) var state: State = .idle
     private var speechRecognizer: SpeechRecognizer?
+    private var dualSourceTranscriber: DualSourceTranscriber?
     private var currentNoteId: String?
+    private var pendingNoteId: String?  // Used to capture noteId for delayed final transcript
     private var gracePeriodTask: Task<Void, Never>?
     private var snippetBuffer: String = ""
 
     // Configuration
-    private let gracePeriodSeconds: TimeInterval = 25
+    private let gracePeriodSeconds: TimeInterval = 30
     private let snippetInterval: TimeInterval = 5
+    private let useDualSource = true  // Testing dual-source (system audio only)
 
     // Callbacks
-    var onStateChange: ((State) -> Void)?
-    var onSnippet: ((String, String) -> Void)?  // (noteId, text)
-    var onTranscript: ((String, String) -> Void)?  // (noteId, text)
+    private var onStateChange: ((State) -> Void)?
+    private var onSnippet: ((String, String) -> Void)?  // (noteId, text)
+    private var onTranscript: ((String, String) -> Void)?  // (noteId, text)
+
+    /// Set callbacks for transcription events
+    func setCallbacks(
+        onStateChange: @escaping (State) -> Void,
+        onSnippet: @escaping (String, String) -> Void,
+        onTranscript: @escaping (String, String) -> Void
+    ) {
+        self.onStateChange = onStateChange
+        self.onSnippet = onSnippet
+        self.onTranscript = onTranscript
+    }
 
     // MARK: - Public API
 
@@ -38,7 +52,6 @@ actor TranscriptionService {
 
         setState(.initialising)
 
-        // Check permissions
         let hasPermission = await withCheckedContinuation { continuation in
             PermissionsManager.shared.requestTranscriptionPermissions { granted in
                 continuation.resume(returning: granted)
@@ -50,21 +63,39 @@ actor TranscriptionService {
             return
         }
 
-        // Create speech recognizer
-        speechRecognizer = SpeechRecognizer()
-        speechRecognizer?.onSnippet = { [weak self] text in
-            Task {
-                await self?.handleSnippet(text)
+        if useDualSource {
+            dualSourceTranscriber = DualSourceTranscriber()
+            dualSourceTranscriber?.onSnippet = { [weak self] text in
+                Task {
+                    await self?.handleSnippet(text)
+                }
             }
-        }
-        speechRecognizer?.onFinalTranscript = { [weak self] text in
-            Task {
-                await self?.handleFinalTranscript(text)
+            dualSourceTranscriber?.onFinalTranscript = { [weak self] text in
+                Task {
+                    await self?.handleFinalTranscript(text)
+                }
             }
-        }
-        speechRecognizer?.onError = { [weak self] error in
-            Task {
-                await self?.handleError(error)
+            dualSourceTranscriber?.onError = { [weak self] error in
+                Task {
+                    await self?.handleError(error)
+                }
+            }
+        } else {
+            speechRecognizer = SpeechRecognizer()
+            speechRecognizer?.onSnippet = { [weak self] text in
+                Task {
+                    await self?.handleSnippet(text)
+                }
+            }
+            speechRecognizer?.onFinalTranscript = { [weak self] text in
+                Task {
+                    await self?.handleFinalTranscript(text)
+                }
+            }
+            speechRecognizer?.onError = { [weak self] error in
+                Task {
+                    await self?.handleError(error)
+                }
             }
         }
 
@@ -73,32 +104,40 @@ actor TranscriptionService {
 
     /// Start recording for a note
     func start(noteId: String) async throws {
-        // Cancel any grace period
         gracePeriodTask?.cancel()
         gracePeriodTask = nil
 
-        // If already recording same note, ignore
         if case .recording(let currentId) = state, currentId == noteId {
             return
         }
 
-        // Stop any existing recording
         await stop()
 
-        // Ensure initialised
-        if speechRecognizer == nil {
-            await initialize()
-        }
-
-        guard let recognizer = speechRecognizer else {
-            throw TranscriptionError.notInitialised
+        if useDualSource {
+            if dualSourceTranscriber == nil {
+                await initialize()
+            }
+            guard dualSourceTranscriber != nil else {
+                throw TranscriptionError.notInitialised
+            }
+        } else {
+            if speechRecognizer == nil {
+                await initialize()
+            }
+            guard speechRecognizer != nil else {
+                throw TranscriptionError.notInitialised
+            }
         }
 
         currentNoteId = noteId
         snippetBuffer = ""
 
         do {
-            try recognizer.startRecording()
+            if useDualSource {
+                try dualSourceTranscriber?.startRecording()
+            } else {
+                try speechRecognizer?.startRecording()
+            }
             setState(.recording(noteId: noteId))
         } catch {
             setState(.error(error.localizedDescription))
@@ -113,10 +152,22 @@ actor TranscriptionService {
 
         guard case .recording = state else { return }
 
-        setState(.processing)
-        speechRecognizer?.stopRecording()
+        let noteIdToSave = currentNoteId
+        let transcriptToSave = snippetBuffer
+        pendingNoteId = currentNoteId
 
-        // Wait briefly for final transcript
+        setState(.processing)
+
+        if useDualSource {
+            dualSourceTranscriber?.stopRecording()
+        } else {
+            speechRecognizer?.stopRecording()
+        }
+
+        if let noteId = noteIdToSave, !transcriptToSave.isEmpty {
+            onTranscript?(noteId, transcriptToSave)
+        }
+
         try? await Task.sleep(nanoseconds: 500_000_000)
 
         currentNoteId = nil
@@ -126,25 +177,22 @@ actor TranscriptionService {
 
     /// Called when user switches to a different note
     func onNoteSwitched(to noteId: String, newestNoteId: String?) async {
-        // If switching to newest note, that becomes the recording target
         if noteId == newestNoteId {
             gracePeriodTask?.cancel()
             gracePeriodTask = nil
 
-            // If not already recording, start
             if case .recording = state {
-                return  // Already recording
+                return
             }
 
             do {
                 try await start(noteId: noteId)
             } catch {
-                print("Failed to start recording: \(error)")
+                // Recording failed to start
             }
             return
         }
 
-        // Otherwise, start grace period
         startGracePeriod()
     }
 
@@ -191,7 +239,6 @@ actor TranscriptionService {
     }
 
     private func startGracePeriod() {
-        // Cancel existing grace period
         gracePeriodTask?.cancel()
 
         guard case .recording = state else { return }
@@ -199,12 +246,10 @@ actor TranscriptionService {
         gracePeriodTask = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(gracePeriodSeconds * 1_000_000_000))
-
                 guard !Task.isCancelled else { return }
-
                 await stop()
             } catch {
-                // Task cancelled, that's fine
+                // Task cancelled or sleep interrupted
             }
         }
     }
@@ -212,16 +257,22 @@ actor TranscriptionService {
     private func handleSnippet(_ text: String) {
         guard let noteId = currentNoteId else { return }
 
-        // Only emit if text changed significantly
-        if text.count > snippetBuffer.count + 10 {
-            snippetBuffer = text
+        let previousLength = snippetBuffer.count
+
+        // Always update buffer with latest transcript (for final save)
+        snippetBuffer = text
+
+        // Only emit to file if text changed significantly (10+ chars more)
+        if text.count >= previousLength + 10 {
             onSnippet?(noteId, text)
         }
     }
 
     private func handleFinalTranscript(_ text: String) {
-        guard let noteId = currentNoteId else { return }
+        let noteId = currentNoteId ?? pendingNoteId
+        guard let noteId = noteId else { return }
         onTranscript?(noteId, text)
+        pendingNoteId = nil
     }
 
     private func handleError(_ error: Error) {

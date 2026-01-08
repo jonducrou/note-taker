@@ -295,7 +295,112 @@
 **Lesson**: Always clean build artifacts before rebuilding to ensure consistent, predictable builds
 **Debugging Tip**: When dist version behaves differently from dev, first verify builds are clean by manually deleting dist/ and release/ folders
 
-### **Separate Command Window** ❌ REJECTED  
+### **Dual-Source Transcription (Mic + System Audio)** ✅ IMPLEMENTED
+**Goal**: Capture both microphone (user) and system audio (other participants) for annotated transcripts
+**Implementation**:
+- `DualSourceTranscriber.swift` coordinates dual audio pipelines with independent speech recognizers
+- Microphone capture uses AVAudioEngine tap + dedicated SFSpeechRecognizer
+- System audio uses `ScreenCaptureAudio.swift` (ScreenCaptureKit, macOS 13+) with Core Audio Taps as fallback
+**Key Architecture (Jan 2026)**:
+- **Two completely independent pipelines** to avoid interference:
+  - Separate `SFSpeechRecognizer` instance for each source
+  - Separate `SFSpeechAudioBufferRecognitionRequest` for each source
+  - Microphone has its own AVAudioEngine with tap
+  - System audio uses ScreenCaptureKit or Core Audio Taps
+- System audio setup runs asynchronously to avoid blocking microphone capture
+- Transcripts annotated with `[You]` for user and `[Other]` for system audio
+
+**System Audio Capture Evolution**:
+1. **Core Audio Taps (macOS 14.4+)** - Initial implementation
+   - Uses `CATapDescription(monoGlobalTapButExcludeProcesses: [])`
+   - Creates process tap + aggregate device
+   - **Issue on macOS 26.2**: Returns zero-value audio buffers despite permissions enabled
+   - Multiple attempts to fix (privateTap, muteBehavior, exclusive properties) did not resolve
+
+2. **ScreenCaptureKit (macOS 13+)** ✅ WORKING - Current primary method
+   - Uses `SCStream` with audio-only configuration (minimal video: 2x2px, 1fps)
+   - Successfully captures system audio with actual audio data
+   - Speech recognition confirmed working ("Gentlemen" detected in test)
+   - Fallback to Core Audio Taps if ScreenCaptureKit fails
+
+**ScreenCaptureKit Setup** (in `ScreenCaptureAudio.swift`):
+1. Get `SCShareableContent` - enumerate displays
+2. Create `SCContentFilter` for display
+3. Configure `SCStreamConfiguration` with `capturesAudio = true`
+4. Create `SCStream` and add audio output handler
+5. Convert `CMSampleBuffer` to `AVAudioPCMBuffer` for speech recognition
+
+**Core Audio Taps Setup** (in `CoreAudioTapCapture.swift`, fallback):
+1. `CATapDescription(monoGlobalTapButExcludeProcesses: [])` - captures all system audio
+2. `AudioHardwareCreateProcessTap()` - creates the tap
+3. Create aggregate device with ONLY the tap (no sub-devices)
+4. Use `AVAudioEngine` with aggregate device as input
+5. Install tap on input node for audio buffers
+
+**Concurrent SFSpeechRecognizer Limitation** ❌ DISCOVERED (Jan 2026):
+- When running two separate SFSpeechRecognizer instances (one for mic, one for system audio), only the first to receive audio buffers produces results
+- The second recognizer silently fails with silence timeouts
+- Each recognizer works perfectly when run individually
+- This appears to be an undocumented Apple limitation
+
+**Solution: Hybrid Approach (SFSpeechRecognizer + SpeechAnalyzer)** ✅ WORKING:
+- Uses **different APIs** for each audio source to avoid conflicts:
+  - **Microphone**: Traditional `SFSpeechRecognizer` → `[You]` annotation
+  - **System Audio**: New `SpeechAnalyzer` API (macOS 26) → `[Other]` annotation
+- Successfully transcribes both sources simultaneously with speaker separation
+- Each API uses independent speech recognition systems that don't conflict
+
+**Implementation** (`HybridDualTranscriber.swift`):
+1. Create `SFSpeechRecognizer` for microphone with `AVAudioEngine` tap
+2. Create `SpeechTranscriber` + `SpeechAnalyzer` for system audio via ScreenCaptureKit
+3. Mic buffers → `SFSpeechAudioBufferRecognitionRequest.append()`
+4. System buffers → Convert to analyzer format → `AsyncStream<AnalyzerInput>.yield()`
+5. Results from mic tagged as `[You]`, results from system tagged as `[Other]`
+6. Combined snippet shows both transcripts in real-time
+
+**Test Results** (Jan 2026):
+- Microphone: "I'm testing the audio and I'm talking right now..."
+- System audio: "Gentlemen, this is Democracy Manifest. What is the charge? A succulent Chinese meal..."
+- Both transcribed simultaneously with correct speaker attribution
+
+**Requirements**:
+- macOS 26+ for SpeechAnalyzer API (new requirement)
+- macOS 13+ for ScreenCaptureKit system audio capture
+- `NSAudioCaptureUsageDescription` in Info.plist for system audio permission
+- Screen recording permission required for ScreenCaptureKit
+- Language models downloaded on-demand via `AssetInventory`
+
+**Research Sources**:
+- [Apple Core Audio Taps Documentation](https://developer.apple.com/documentation/CoreAudio/capturing-system-audio-with-core-audio-taps)
+- [AudioCap](https://github.com/insidegui/AudioCap) - Sample code for macOS 14.4+
+- [AudioTee](https://github.com/makeusabrew/audiotee) - Swift CLI tool using Core Audio Taps
+- [WWDC25 - SpeechAnalyzer](https://developer.apple.com/videos/play/wwdc2025/277/)
+- [iOS 26 SpeechAnalyzer Guide](https://antongubarenko.substack.com/p/ios-26-speechanalyzer-guide)
+- [Apple Developer Forums - Concurrent Recognition](https://developer.apple.com/forums/thread/696502)
+
+### **LLM Action Extraction** ✅ IMPLEMENTED (Jan 2026)
+**Goal**: Automatically extract actionable items from meeting transcripts
+**Implementation** (`ActionExtractionService.swift`):
+- Uses OpenAI-compatible API (configurable endpoint, key, model)
+- Extracts three types: actions, commitments, expectations
+- Each item has importance rating (critical/high/medium/low)
+- Includes owner, deadline, and context where mentioned
+- Saves to `.actions` JSON files alongside notes
+- Tags from `@audience:` used for filtering by context
+
+**Async Completion Handling**:
+- `pendingExtractions` counter tracks in-flight LLM calls
+- `waitForPendingExtractions(timeout:)` blocks app termination
+- AppDelegate uses `terminateLater` to ensure extraction completes before quit
+
+**Configuration** (via UserDefaults):
+```bash
+defaults write NoteTaker llm_endpoint "https://api.openai.com/v1/chat/completions"
+defaults write NoteTaker llm_api_key "your-api-key"
+defaults write NoteTaker llm_model "gpt-4o-mini"
+```
+
+### **Separate Command Window** ❌ REJECTED
 **Attempted**: Dedicated command window for navigation
 **Problem**: Added complexity, broke single-window simplicity
 **Solution**: Modal command palette overlay

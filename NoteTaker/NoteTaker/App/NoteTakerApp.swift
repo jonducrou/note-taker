@@ -5,12 +5,10 @@ struct NoteTakerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        WindowGroup {
-            MainWindowView()
-                .frame(minWidth: 300, minHeight: 400)
+        // Empty settings scene - window is created manually in AppDelegate
+        Settings {
+            EmptyView()
         }
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Note") {

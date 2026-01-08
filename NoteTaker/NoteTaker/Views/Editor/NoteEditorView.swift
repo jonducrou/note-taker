@@ -73,6 +73,13 @@ struct NoteEditorView: NSViewRepresentable {
         // Apply initial syntax highlighting
         textView.applySyntaxHighlighting()
 
+        // Make text view first responder after a brief delay
+        DispatchQueue.main.async {
+            if let window = scrollView.window {
+                window.makeFirstResponder(textView)
+            }
+        }
+
         return scrollView
     }
 
@@ -104,6 +111,7 @@ struct NoteEditorView: NSViewRepresentable {
             parent.content = textView.string
             parent.onContentChange()
             textView.applySyntaxHighlighting()
+            textView.checkForAutocomplete()
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {

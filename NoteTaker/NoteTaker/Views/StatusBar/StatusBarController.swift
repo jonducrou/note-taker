@@ -17,20 +17,25 @@ class StatusBarController: NSObject {
 
     private func setupStatusItem() {
         if let button = statusItem.button {
-            // Use SF Symbol for the icon - use "square.and.pencil" which is more common
-            if let image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: "Note Taker") {
-                image.isTemplate = true
-                button.image = image
-            } else {
-                // Fallback to text
-                button.title = "📝"
-            }
-
+            button.image = loadTrayIcon()
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        print("Status bar item created: \(statusItem)")
+    }
+
+    private func loadTrayIcon() -> NSImage? {
+        if let iconURL = Bundle.module.url(forResource: "tray-icon@2x", withExtension: "png",
+                                            subdirectory: "Assets.xcassets/TrayIcon.imageset"),
+           let image = NSImage(contentsOf: iconURL) {
+            image.size = NSSize(width: 18, height: 18)
+            image.isTemplate = true
+            return image
+        }
+
+        let image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: "Note Taker")
+        image?.isTemplate = true
+        return image
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -160,10 +165,7 @@ class StatusBarController: NSObject {
                 button.image = nil
             } else {
                 button.title = ""
-                if let image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "Note Taker") {
-                    image.isTemplate = true
-                    button.image = image
-                }
+                button.image = loadTrayIcon()
             }
         }
     }

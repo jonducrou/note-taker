@@ -26,11 +26,6 @@ class SpeechRecognizer: ObservableObject {
 
     init(locale: Locale = Locale(identifier: "en-AU")) {
         speechRecognizer = SFSpeechRecognizer(locale: locale)
-
-        // Check availability
-        if speechRecognizer == nil {
-            print("Speech recognizer not available for locale: \(locale.identifier)")
-        }
     }
 
     // MARK: - Recording Control
@@ -40,12 +35,15 @@ class SpeechRecognizer: ObservableObject {
             throw SpeechRecognizerError.recognizerNotAvailable
         }
 
-        // Cancel any existing task
-        stopRecording()
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        recognitionTask?.cancel()
+        recognitionTask = nil
 
-        // Note: AVAudioSession is iOS only. On macOS, AVAudioEngine works directly.
-
-        // Create recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
 
         guard let recognitionRequest = recognitionRequest else {
@@ -53,13 +51,22 @@ class SpeechRecognizer: ObservableObject {
         }
 
         recognitionRequest.shouldReportPartialResults = true
-        recognitionRequest.requiresOnDeviceRecognition = true  // Offline recognition
 
-        // Create recognition task
+        if speechRecognizer.supportsOnDeviceRecognition {
+            recognitionRequest.requiresOnDeviceRecognition = true
+        }
+
         recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self = self else { return }
 
             if let error = error {
+                let nsError = error as NSError
+                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
+                    DispatchQueue.main.async {
+                        self.restartRecognition()
+                    }
+                    return
+                }
                 self.handleError(error)
                 return
             }
@@ -71,17 +78,14 @@ class SpeechRecognizer: ObservableObject {
                     self.transcript = transcription
                 }
 
-                // Emit snippet for partial results
                 if !result.isFinal {
                     self.onSnippet?(transcription)
                 } else {
-                    // Final result
                     self.onFinalTranscript?(transcription)
                 }
             }
         }
 
-        // Configure audio input
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
@@ -89,7 +93,6 @@ class SpeechRecognizer: ObservableObject {
             self?.recognitionRequest?.append(buffer)
         }
 
-        // Start audio engine
         audioEngine.prepare()
         try audioEngine.start()
 
@@ -100,22 +103,77 @@ class SpeechRecognizer: ObservableObject {
         }
     }
 
+    /// Restart recognition after silence timeout (preserves accumulated transcript)
+    private func restartRecognition() {
+        guard isRecording, let speechRecognizer = speechRecognizer else { return }
+
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { return }
+
+        recognitionRequest.shouldReportPartialResults = true
+        if speechRecognizer.supportsOnDeviceRecognition {
+            recognitionRequest.requiresOnDeviceRecognition = true
+        }
+
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                let nsError = error as NSError
+                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
+                    DispatchQueue.main.async {
+                        self.restartRecognition()
+                    }
+                    return
+                }
+                self.handleError(error)
+                return
+            }
+
+            if let result = result {
+                let transcription = result.bestTranscription.formattedString
+
+                DispatchQueue.main.async {
+                    self.transcript = transcription
+                }
+
+                if !result.isFinal {
+                    self.onSnippet?(transcription)
+                } else {
+                    self.onFinalTranscript?(transcription)
+                }
+            }
+        }
+
+        let inputNode = audioEngine.inputNode
+        inputNode.removeTap(onBus: 0)
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+            self?.recognitionRequest?.append(buffer)
+        }
+    }
+
     func stopRecording() {
-        // Stop audio engine
         if audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
         }
 
-        // End recognition request
         recognitionRequest?.endAudio()
-        recognitionRequest = nil
 
-        // Cancel recognition task
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
 
-        DispatchQueue.main.async {
+            if !self.transcript.isEmpty {
+                self.onFinalTranscript?(self.transcript)
+            }
+
+            self.recognitionRequest = nil
+            self.recognitionTask?.cancel()
+            self.recognitionTask = nil
             self.isRecording = false
         }
     }

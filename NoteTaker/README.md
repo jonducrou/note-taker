@@ -6,38 +6,46 @@ A minimalist, always-on-top note-taking application for macOS, rewritten in nati
 
 - **Text-first design**: 95% text area, minimal UI
 - **Syntax highlighting**: Actions, connections, groups, and audience tags
-- **Audio transcription**: Built-in speech recognition using Apple Speech framework
-- **LLM cleanup**: Optional transcript cleanup using OpenAI-compatible API
+- **Dual-source transcription**: Captures both microphone and system audio with speaker attribution
+- **LLM action extraction**: Automatically extracts actions, commitments, and expectations from transcripts
 - **Always available**: Global hotkey (Cmd+Shift+N) and menu bar icon
 - **Auto-save**: Changes saved automatically after 250ms
 
 ## Building
 
-### Option 1: Using Xcodegen (Recommended)
+### Option 1: Swift Package Manager (Recommended)
 
-1. Install xcodegen:
+```bash
+cd NoteTaker
+
+# Debug build
+swift build
+
+# Release build
+swift build -c release
+
+# Run debug build
+.build/debug/NoteTaker
+
+# Run release build
+.build/release/NoteTaker
+```
+
+### Option 2: Xcode Project
+
+1. Generate Xcode project (requires xcodegen):
    ```bash
    brew install xcodegen
-   ```
-
-2. Generate Xcode project:
-   ```bash
    cd NoteTaker
    xcodegen generate
-   ```
-
-3. Open and build:
-   ```bash
    open NoteTaker.xcodeproj
    ```
 
-### Option 2: Create Xcode Project Manually
-
-1. Open Xcode
-2. Create new macOS App project
-3. Add all files from the `NoteTaker/` directory
-4. Add Yams package dependency: `https://github.com/jpsim/Yams`
-5. Configure entitlements for microphone access
+2. Or create manually:
+   - Create new macOS App project
+   - Add all files from the `NoteTaker/` directory
+   - Add Yams package dependency: `https://github.com/jpsim/Yams`
+   - Configure entitlements for microphone and screen recording access
 
 ## Project Structure
 
@@ -46,9 +54,13 @@ NoteTaker/
 ├── App/                    # App entry point and delegate
 ├── Models/                 # Note, Action, Connection models
 ├── Services/
+│   ├── ActionExtraction/   # LLM-based action extraction
 │   ├── FileStorage/        # Markdown file operations
-│   ├── Transcription/      # Speech recognition
-│   └── System/             # Hotkey, permissions, badge
+│   ├── Transcription/      # Speech recognition (dual-source)
+│   │   ├── HybridDualTranscriber.swift   # Main transcriber
+│   │   ├── ScreenCaptureAudio.swift      # System audio capture
+│   │   └── SpeechAnalyzerTranscriber.swift
+│   └── System/             # Hotkey, permissions
 ├── Views/
 │   ├── MainWindow/         # Main window and header
 │   ├── Editor/             # NSTextView with syntax highlighting
@@ -95,25 +107,49 @@ Design -/> Implementation
 - Double-click on `[]` or `[x]`: Toggle action completion
 - Double-click on `->` or `-/>`: Toggle connection completion
 
-## LLM Transcript Cleanup
+## Dual-Source Transcription
 
-Configure via the app settings:
-- API Endpoint: OpenAI-compatible endpoint URL
-- API Key: Your API key
-- Model: Default is `gpt-4o-mini`
-- Speaker identification: Enable to identify different speakers
+The app captures audio from two sources simultaneously:
+- **Microphone** → Tagged as `[You]` in transcripts
+- **System Audio** → Tagged as `[Other]` in transcripts (captures call participants)
+
+Uses a hybrid approach:
+- `SFSpeechRecognizer` for microphone (traditional API)
+- `SpeechAnalyzer` for system audio (macOS 26+ API)
+
+This avoids the concurrent SFSpeechRecognizer limitation while preserving speaker attribution.
+
+## LLM Action Extraction
+
+Automatically extracts actionable items from transcripts:
+- **Actions**: Tasks and next steps with owner and deadline
+- **Commitments**: Promises made during discussions
+- **Expectations**: Things people are expecting to happen
+
+Configure via UserDefaults:
+```bash
+defaults write NoteTaker llm_endpoint "https://api.openai.com/v1/chat/completions"
+defaults write NoteTaker llm_api_key "your-api-key"
+defaults write NoteTaker llm_model "gpt-4o-mini"
+```
+
+Actions are saved to `.actions` files alongside notes and displayed in the Actions tab.
 
 ## Requirements
 
-- macOS 13.0 (Ventura) or later
+- macOS 26.0 (Tahoe) or later for dual-source transcription
+- macOS 13.0 (Ventura) for single-source transcription
 - Microphone permission for audio transcription
+- Screen recording permission for system audio capture
 - Speech recognition permission
 
 ## Benefits over Electron Version
 
 | Aspect | Electron | Swift |
 |--------|----------|-------|
-| Bundle Size | ~150MB | ~5-10MB |
-| Startup Time | ~2-3s | <0.5s |
+| Bundle Size | ~150MB | ~2.4MB |
+| Startup Time | ~2-3s | <0.3s |
 | Memory Usage | ~200MB | ~30-50MB |
-| Audio | External Node process | Native SFSpeechRecognizer |
+| Audio | External Node process | Native Speech APIs |
+| System Audio | Not supported | ScreenCaptureKit |
+| Speaker Attribution | Not supported | [You] / [Other] |

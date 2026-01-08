@@ -32,7 +32,7 @@ class HotkeyManager {
 
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
-            { (_, event, _) -> OSStatus in
+            { (_, _, _) -> OSStatus in
                 HotkeyManager.sharedInstance?.callback?()
                 return noErr
             },
@@ -42,12 +42,8 @@ class HotkeyManager {
             &eventHandler
         )
 
-        guard status == noErr else {
-            print("Failed to install event handler: \(status)")
-            return
-        }
+        guard status == noErr else { return }
 
-        // Convert NSEvent modifiers to Carbon modifiers
         var carbonModifiers: UInt32 = 0
         if modifiers.contains(.command) {
             carbonModifiers |= UInt32(cmdKey)
@@ -67,7 +63,7 @@ class HotkeyManager {
             id: 1
         )
 
-        let registerStatus = RegisterEventHotKey(
+        _ = RegisterEventHotKey(
             keyCode,
             carbonModifiers,
             hotkeyID,
@@ -75,10 +71,6 @@ class HotkeyManager {
             0,
             &hotkeyRef
         )
-
-        if registerStatus != noErr {
-            print("Failed to register hotkey: \(registerStatus)")
-        }
     }
 
     /// Unregister the global hotkey

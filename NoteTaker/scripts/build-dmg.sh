@@ -74,6 +74,11 @@ if [ -f "../assets/app-icon.icns" ]; then
     cp "../assets/app-icon.icns" "${APP_DIR}/Contents/Resources/AppIcon.icns"
 fi
 
+# Copy resource bundle (contains assets used by Bundle.module)
+if [ -d ".build/release/NoteTaker_NoteTaker.bundle" ]; then
+    cp -R ".build/release/NoteTaker_NoteTaker.bundle" "${APP_DIR}/Contents/Resources/"
+fi
+
 # Create PkgInfo
 echo -n "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 

@@ -30,11 +30,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupDockIcon() {
-        if let iconURL = Bundle.module.url(forResource: "icon_512x512", withExtension: "png",
-                                            subdirectory: "Assets.xcassets/AppIcon.appiconset"),
+        // Try to load from resource bundle (safe accessor that doesn't crash)
+        if let bundle = Bundle.moduleOrNil,
+           let iconURL = bundle.url(forResource: "icon_512x512", withExtension: "png",
+                                    subdirectory: "Assets.xcassets/AppIcon.appiconset"),
            let icon = NSImage(contentsOf: iconURL) {
             NSApplication.shared.applicationIconImage = icon
         }
+        // Falls back to default app icon if resource bundle not found
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

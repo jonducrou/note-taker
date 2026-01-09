@@ -26,14 +26,17 @@ class StatusBarController: NSObject {
     }
 
     private func loadTrayIcon() -> NSImage? {
-        if let iconURL = Bundle.module.url(forResource: "tray-icon@2x", withExtension: "png",
-                                            subdirectory: "Assets.xcassets/TrayIcon.imageset"),
+        // Try to load from resource bundle (safe accessor that doesn't crash)
+        if let bundle = Bundle.moduleOrNil,
+           let iconURL = bundle.url(forResource: "tray-icon@2x", withExtension: "png",
+                                    subdirectory: "Assets.xcassets/TrayIcon.imageset"),
            let image = NSImage(contentsOf: iconURL) {
             image.size = NSSize(width: 18, height: 18)
             image.isTemplate = true
             return image
         }
 
+        // Fallback to system symbol
         let image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: "Note Taker")
         image?.isTemplate = true
         return image

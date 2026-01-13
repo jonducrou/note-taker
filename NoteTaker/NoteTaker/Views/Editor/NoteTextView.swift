@@ -290,7 +290,7 @@ class NoteTextView: NSTextView {
         return false
     }
 
-    /// Handle Tab key - indent/dedent bullet points
+    /// Handle Tab key - indent/dedent lines with 2 spaces
     func handleTabKey(shift: Bool) -> Bool {
         guard let selectedRange = selectedRanges.first as? NSRange,
               let lineRange = getLineRange(containing: selectedRange.location) else {
@@ -299,27 +299,29 @@ class NoteTextView: NSTextView {
 
         let lineContent = (string as NSString).substring(with: lineRange)
 
-        // Only handle bullet lines
-        guard lineContent.trimmingCharacters(in: .whitespaces).hasPrefix("- ") else {
-            return false
-        }
-
         if shift {
-            // Dedent: remove 2 spaces from start if present
+            // Dedent: remove up to 2 spaces from start
             if lineContent.hasPrefix("  ") {
                 let newLine = String(lineContent.dropFirst(2))
                 replaceText(in: lineRange, with: newLine)
+                // Adjust cursor position
+                let newLocation = max(lineRange.location, selectedRange.location - 2)
+                setSelectedRange(NSRange(location: newLocation, length: 0))
+                return true
+            } else if lineContent.hasPrefix(" ") {
+                let newLine = String(lineContent.dropFirst(1))
+                replaceText(in: lineRange, with: newLine)
+                let newLocation = max(lineRange.location, selectedRange.location - 1)
+                setSelectedRange(NSRange(location: newLocation, length: 0))
                 return true
             }
         } else {
-            // Indent: add 2 spaces at start
+            // Indent: add 2 spaces at start of line
             let newLine = "  " + lineContent
             replaceCharacters(in: lineRange, with: newLine)
 
             // Adjust cursor position
-            if let range = selectedRanges.first as? NSRange {
-                setSelectedRange(NSRange(location: range.location + 2, length: 0))
-            }
+            setSelectedRange(NSRange(location: selectedRange.location + 2, length: 0))
             return true
         }
 

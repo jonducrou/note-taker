@@ -26,7 +26,15 @@ actor TranscriptionService {
     // Configuration
     private let gracePeriodSeconds: TimeInterval = 30
     private let snippetInterval: TimeInterval = 5
-    private let useDualSource = true  // Testing dual-source (system audio only)
+
+    // Auto-detect: use dual-source on macOS 26+, fallback to basic on older versions
+    private var useDualSource: Bool {
+        if #available(macOS 26.0, *) {
+            return true
+        } else {
+            return false
+        }
+    }
 
     // Callbacks
     private var onStateChange: ((State) -> Void)?

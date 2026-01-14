@@ -15,6 +15,14 @@ struct MainWindowView: View {
                 onNewNote: { viewModel.createNewNote() }
             )
 
+            // Error banner
+            if let error = viewModel.errorMessage {
+                ErrorBannerView(message: error) {
+                    viewModel.dismissError()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Editor
             NoteEditorView(
                 content: $viewModel.content,
@@ -25,12 +33,15 @@ struct MainWindowView: View {
                 onNavigatePreviousWithActions: { viewModel.navigateToPreviousNote(skipEmpty: true) }
             )
 
-            // Actions Tab (only shows when there are related actions or insights)
-            if viewModel.showActionsTab {
+            // Actions Tab (shows when there are related actions, insights, or in global view mode)
+            if viewModel.showActionsTab || viewModel.showGlobalActions {
                 ActionsTabView(
                     relatedActions: viewModel.relatedActions,
                     extractedInsights: viewModel.extractedInsights,
-                    onNavigateToNote: { viewModel.navigateToRelatedNote($0) }
+                    globalActions: viewModel.globalActions,
+                    showGlobalView: viewModel.showGlobalActions,
+                    onToggleGlobalView: viewModel.toggleGlobalActionsView,
+                    onNavigateToNote: viewModel.navigateToRelatedNote
                 )
                 .frame(height: actionsTabHeight)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -39,6 +50,7 @@ struct MainWindowView: View {
         .frame(minWidth: 300, minHeight: 400)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(.easeInOut(duration: 0.2), value: viewModel.showActionsTab)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage != nil)
         .onAppear {
             viewModel.loadMostRecentNote()
         }
@@ -59,7 +71,41 @@ struct MainWindowView: View {
     }
 }
 
+/// Banner view for displaying errors
+struct ErrorBannerView: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.yellow)
+
+            Text(message)
+                .font(.caption)
+                .foregroundColor(.white)
+                .lineLimit(2)
+
+            Spacer()
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.red.opacity(0.9))
+    }
+}
+
 #Preview {
     MainWindowView()
         .frame(width: 300, height: 400)
+}
+
+#Preview("Error Banner") {
+    ErrorBannerView(message: "Transcription requires macOS 26 or later", onDismiss: {})
+        .frame(width: 300)
 }

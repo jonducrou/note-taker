@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os.log
 
 /// Coordinates audio transcription for notes
 actor TranscriptionService {
@@ -58,6 +59,7 @@ actor TranscriptionService {
     func initialize() async {
         guard state == .idle else { return }
 
+        Logger.info("Initialising transcription service", log: Logger.transcription)
         setState(.initialising)
 
         let hasPermission = await withCheckedContinuation { continuation in
@@ -67,11 +69,13 @@ actor TranscriptionService {
         }
 
         guard hasPermission else {
+            Logger.error("Permission denied for microphone or speech recognition", log: Logger.transcription)
             setState(.error("Microphone or speech recognition permission denied"))
             return
         }
 
         if useDualSource {
+            Logger.info("Using dual-source transcription (macOS 26+)", log: Logger.transcription)
             dualSourceTranscriber = DualSourceTranscriber()
             dualSourceTranscriber?.onSnippet = { [weak self] text in
                 Task {
@@ -89,6 +93,7 @@ actor TranscriptionService {
                 }
             }
         } else {
+            Logger.info("Using single-source transcription (SFSpeechRecognizer)", log: Logger.transcription)
             speechRecognizer = SpeechRecognizer()
             speechRecognizer?.onSnippet = { [weak self] text in
                 Task {
@@ -141,13 +146,16 @@ actor TranscriptionService {
         snippetBuffer = ""
 
         do {
+            Logger.info("Starting recording for note: \(noteId)", log: Logger.transcription)
             if useDualSource {
                 try dualSourceTranscriber?.startRecording()
             } else {
                 try speechRecognizer?.startRecording()
             }
             setState(.recording(noteId: noteId))
+            Logger.info("Recording started successfully", log: Logger.transcription)
         } catch {
+            Logger.error("Failed to start recording: \(error.localizedDescription)", log: Logger.transcription)
             setState(.error(error.localizedDescription))
             throw error
         }
@@ -159,6 +167,8 @@ actor TranscriptionService {
         gracePeriodTask = nil
 
         guard case .recording = state else { return }
+
+        Logger.info("Stopping recording", log: Logger.transcription)
 
         let noteIdToSave = currentNoteId
         let transcriptToSave = snippetBuffer
@@ -284,6 +294,7 @@ actor TranscriptionService {
     }
 
     private func handleError(_ error: Error) {
+        Logger.error("Transcription error: \(error.localizedDescription)", log: Logger.transcription)
         setState(.error(error.localizedDescription))
     }
 }

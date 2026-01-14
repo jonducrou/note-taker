@@ -142,27 +142,30 @@ class NavigableTextView: NoteTextView {
     var onNavigateNextWithActions: (() -> Void)?
     var onNavigatePreviousWithActions: (() -> Void)?
 
-    override func keyDown(with event: NSEvent) {
-        // Check for Option modifier
-        if event.modifierFlags.contains(.option) {
+    // Use performKeyEquivalent to intercept Option+Arrow before macOS word navigation
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Only handle Option+Arrow (not Option+Shift+Arrow which is for selection)
+        let optionOnly = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option
+
+        if optionOnly {
             switch event.keyCode {
             case 125: // Down arrow - previous (newer) note
                 onNavigatePrevious?()
-                return
+                return true
             case 126: // Up arrow - next (older) note
                 onNavigateNext?()
-                return
+                return true
             case 123: // Left arrow - next note with actions
                 onNavigateNextWithActions?()
-                return
+                return true
             case 124: // Right arrow - previous note with actions
                 onNavigatePreviousWithActions?()
-                return
+                return true
             default:
                 break
             }
         }
-        super.keyDown(with: event)
+        return super.performKeyEquivalent(with: event)
     }
 }
 

@@ -53,75 +53,76 @@ class StatusBarController: NSObject {
     }
 
     private func showMenu() {
-        let menu = NSMenu()
+        Task { @MainActor in
+            // Load notes in parallel before building menu
+            async let todayNotes = try? FileStorageService.shared.getNotesForToday()
+            async let yesterdayNotes = try? FileStorageService.shared.getNotesForYesterday()
+            async let priorWeekNotes = try? FileStorageService.shared.getNotesForPriorWeek()
 
-        // Show Notes
-        let showItem = NSMenuItem(title: "Show Notes", action: #selector(showNotesClicked), keyEquivalent: "")
-        showItem.target = self
-        menu.addItem(showItem)
+            let menu = NSMenu()
 
-        menu.addItem(NSMenuItem.separator())
+            // Show Notes
+            let showItem = NSMenuItem(title: "Show Notes", action: #selector(showNotesClicked), keyEquivalent: "")
+            showItem.target = self
+            menu.addItem(showItem)
 
-        // New Note
-        let newItem = NSMenuItem(title: "New Note", action: #selector(newNoteClicked), keyEquivalent: "n")
-        newItem.target = self
-        menu.addItem(newItem)
+            menu.addItem(NSMenuItem.separator())
 
-        menu.addItem(NSMenuItem.separator())
+            // New Note
+            let newItem = NSMenuItem(title: "New Note", action: #selector(newNoteClicked), keyEquivalent: "n")
+            newItem.target = self
+            menu.addItem(newItem)
 
-        // Today submenu
-        let todayItem = NSMenuItem(title: "Today", action: nil, keyEquivalent: "")
-        let todayMenu = NSMenu()
-        Task {
-            await populateDateMenu(todayMenu, notes: try? await FileStorageService.shared.getNotesForToday())
+            menu.addItem(NSMenuItem.separator())
+
+            // Today submenu - await results before adding
+            let todayItem = NSMenuItem(title: "Today", action: nil, keyEquivalent: "")
+            let todayMenu = NSMenu()
+            populateDateMenu(todayMenu, notes: await todayNotes)
+            todayItem.submenu = todayMenu
+            menu.addItem(todayItem)
+
+            // Yesterday submenu - await results before adding
+            let yesterdayItem = NSMenuItem(title: "Yesterday", action: nil, keyEquivalent: "")
+            let yesterdayMenu = NSMenu()
+            populateDateMenu(yesterdayMenu, notes: await yesterdayNotes)
+            yesterdayItem.submenu = yesterdayMenu
+            menu.addItem(yesterdayItem)
+
+            // Prior Week submenu - await results before adding
+            let priorWeekItem = NSMenuItem(title: "Prior Week", action: nil, keyEquivalent: "")
+            let priorWeekMenu = NSMenu()
+            populateDateMenu(priorWeekMenu, notes: await priorWeekNotes)
+            priorWeekItem.submenu = priorWeekMenu
+            menu.addItem(priorWeekItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            // Version
+            if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                let versionItem = NSMenuItem(title: "Version \(version)", action: nil, keyEquivalent: "")
+                versionItem.isEnabled = false
+                menu.addItem(versionItem)
+            }
+
+            menu.addItem(NSMenuItem.separator())
+
+            // Preferences
+            let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(preferencesClicked), keyEquivalent: ",")
+            prefsItem.target = self
+            menu.addItem(prefsItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            // Quit
+            let quitItem = NSMenuItem(title: "Quit Note Taker", action: #selector(quitClicked), keyEquivalent: "q")
+            quitItem.target = self
+            menu.addItem(quitItem)
+
+            statusItem.menu = menu
+            statusItem.button?.performClick(nil)
+            statusItem.menu = nil
         }
-        todayItem.submenu = todayMenu
-        menu.addItem(todayItem)
-
-        // Yesterday submenu
-        let yesterdayItem = NSMenuItem(title: "Yesterday", action: nil, keyEquivalent: "")
-        let yesterdayMenu = NSMenu()
-        Task {
-            await populateDateMenu(yesterdayMenu, notes: try? await FileStorageService.shared.getNotesForYesterday())
-        }
-        yesterdayItem.submenu = yesterdayMenu
-        menu.addItem(yesterdayItem)
-
-        // Prior Week submenu
-        let priorWeekItem = NSMenuItem(title: "Prior Week", action: nil, keyEquivalent: "")
-        let priorWeekMenu = NSMenu()
-        Task {
-            await populateDateMenu(priorWeekMenu, notes: try? await FileStorageService.shared.getNotesForPriorWeek())
-        }
-        priorWeekItem.submenu = priorWeekMenu
-        menu.addItem(priorWeekItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Version
-        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-            let versionItem = NSMenuItem(title: "Version \(version)", action: nil, keyEquivalent: "")
-            versionItem.isEnabled = false
-            menu.addItem(versionItem)
-        }
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Preferences
-        let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(preferencesClicked), keyEquivalent: ",")
-        prefsItem.target = self
-        menu.addItem(prefsItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Quit
-        let quitItem = NSMenuItem(title: "Quit Note Taker", action: #selector(quitClicked), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        statusItem.menu = menu
-        statusItem.button?.performClick(nil)
-        statusItem.menu = nil
     }
 
     @MainActor

@@ -4,18 +4,51 @@ import SwiftUI
 struct ActionsTabView: View {
     let relatedActions: [RelatedAction]
     let extractedInsights: [ExtractedAction]
+    let globalActions: [RelatedAction]
+    let showGlobalView: Bool
+    let onToggleGlobalView: () -> Void
     let onNavigateToNote: (String) -> Void
+
+    private var displayedActions: [RelatedAction] {
+        showGlobalView ? globalActions : relatedActions
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
+            // Header with mode toggle
             HStack {
                 Image(systemName: "checklist")
                     .foregroundColor(.secondary)
-                Text("Related Actions")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
+
+                // Mode toggle buttons
+                HStack(spacing: 4) {
+                    Button(action: {
+                        if showGlobalView { onToggleGlobalView() }
+                    }) {
+                        Text("Context")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(showGlobalView ? Color.clear : Color.accentColor.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(showGlobalView ? .secondary : .accentColor)
+
+                    Button(action: {
+                        if !showGlobalView { onToggleGlobalView() }
+                    }) {
+                        Text("All")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(showGlobalView ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(showGlobalView ? .accentColor : .secondary)
+                }
+
                 Spacer()
                 Text("\(totalActionCount)")
                     .font(.caption)
@@ -34,8 +67,8 @@ struct ActionsTabView: View {
             // Actions list
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    // Extracted insights section (from LLM)
-                    if !extractedInsights.isEmpty {
+                    // Extracted insights section (from LLM) - only in context mode
+                    if !showGlobalView && !extractedInsights.isEmpty {
                         ExtractedInsightsSection(
                             insights: extractedInsights,
                             onNavigateToNote: onNavigateToNote
@@ -43,11 +76,20 @@ struct ActionsTabView: View {
                     }
 
                     // Note-based actions
-                    ForEach(relatedActions, id: \.noteId) { related in
+                    ForEach(displayedActions, id: \.noteId) { related in
                         RelatedActionGroupView(
                             related: related,
                             onTap: { onNavigateToNote(related.noteId) }
                         )
+                    }
+
+                    // Empty state for global view
+                    if showGlobalView && displayedActions.isEmpty {
+                        Text("No incomplete actions")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
             }
@@ -56,8 +98,8 @@ struct ActionsTabView: View {
     }
 
     private var totalActionCount: Int {
-        let noteActions = relatedActions.reduce(0) { $0 + $1.actions.count + $1.connections.count }
-        return noteActions + extractedInsights.count
+        let noteActions = displayedActions.reduce(0) { $0 + $1.actions.count + $1.connections.count }
+        return showGlobalView ? noteActions : noteActions + extractedInsights.count
     }
 }
 
@@ -309,6 +351,9 @@ struct ExtractedInsightRow: View {
                 extractedAt: Date()
             )
         ],
+        globalActions: [],
+        showGlobalView: false,
+        onToggleGlobalView: {},
         onNavigateToNote: { _ in }
     )
     .frame(width: 280, height: 400)

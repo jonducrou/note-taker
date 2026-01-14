@@ -13,9 +13,12 @@ class NoteEditorViewModel: ObservableObject {
     @Published var isRecording = false
     @Published var isInitialising = false
     @Published var isProcessingTranscript = false
+    @Published var errorMessage: String?
     @Published var relatedActions: [RelatedAction] = []
     @Published var extractedInsights: [ExtractedAction] = []
     @Published var showActionsTab = false
+    @Published var showGlobalActions = false
+    @Published var globalActions: [RelatedAction] = []
 
     // MARK: - Private Properties
 
@@ -71,18 +74,42 @@ class NoteEditorViewModel: ObservableObject {
             isRecording = false
             isInitialising = false
             isProcessingTranscript = false
+            errorMessage = nil
         case .initialising:
             isInitialising = true
+            errorMessage = nil
         case .recording:
             isRecording = true
             isInitialising = false
+            errorMessage = nil
         case .processing:
             isProcessingTranscript = true
             isRecording = false
-        case .error:
+        case .error(let message):
             isRecording = false
             isInitialising = false
             isProcessingTranscript = false
+            errorMessage = message
+        }
+    }
+
+    func dismissError() {
+        errorMessage = nil
+    }
+
+    func toggleGlobalActionsView() {
+        showGlobalActions.toggle()
+        if showGlobalActions {
+            Task {
+                await loadGlobalActions()
+            }
+        }
+    }
+
+    private func loadGlobalActions() async {
+        if let actions = try? await storage.getAllIncompleteActions(days: 30) {
+            globalActions = actions
+            showActionsTab = true
         }
     }
 

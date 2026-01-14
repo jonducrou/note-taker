@@ -214,6 +214,35 @@ actor FileStorageService {
 
     // MARK: - Aggregation
 
+    /// Get all incomplete actions across all notes
+    func getAllIncompleteActions(days: Int = 30) async throws -> [RelatedAction] {
+        let notes = try await loadNotes()
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
+
+        var allActions: [RelatedAction] = []
+
+        for note in notes {
+            guard let noteDate = parseNoteDate(note.id),
+                  noteDate >= cutoff else { continue }
+
+            // Get incomplete actions and connections
+            let actions = Action.parse(from: note.content).filter { !$0.isCompleted }
+            let connections = Connection.parse(from: note.content).filter { !$0.isCompleted }
+
+            if !actions.isEmpty || !connections.isEmpty {
+                allActions.append(RelatedAction(
+                    noteId: note.id,
+                    noteTitle: note.group ?? "Note",
+                    noteDate: noteDate,
+                    actions: actions,
+                    connections: connections
+                ))
+            }
+        }
+
+        return allActions.sorted { $0.noteDate > $1.noteDate }
+    }
+
     /// Get related actions for audience members
     func getRelatedActions(for audience: [String], days: Int = 30, excludeNoteId: String? = nil) async throws -> [RelatedAction] {
         guard !audience.isEmpty else { return [] }

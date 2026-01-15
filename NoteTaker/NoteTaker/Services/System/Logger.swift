@@ -21,12 +21,17 @@ enum Logger {
     }
 
     private static var logFileURL: URL {
-        let notesDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/Notes")
+        // Use ~/Library/Logs which doesn't require TCC permission
+        let logsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/NoteTaker")
+
+        // Ensure directory exists
+        try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
+
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let filename = "debug-\(dateFormatter.string(from: Date())).log"
-        return notesDir.appendingPathComponent(filename)
+        return logsDir.appendingPathComponent(filename)
     }
 
     private static let dateFormatter: DateFormatter = {

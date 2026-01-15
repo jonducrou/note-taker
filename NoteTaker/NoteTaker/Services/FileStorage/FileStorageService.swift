@@ -13,9 +13,22 @@ actor FileStorageService {
             .appendingPathComponent("Notes")
 
         self.notesDirectory = documentsPath
+        Logger.info("Notes directory: \(documentsPath.path)", log: Logger.storage)
 
         // Ensure directory exists
-        try? fileManager.createDirectory(at: notesDirectory, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(at: notesDirectory, withIntermediateDirectories: true)
+            Logger.info("Notes directory created/verified", log: Logger.storage)
+        } catch {
+            Logger.error("Failed to create notes directory: \(error.localizedDescription)", log: Logger.storage)
+        }
+
+        // Check if we can access the directory
+        if fileManager.isReadableFile(atPath: documentsPath.path) {
+            Logger.info("Notes directory is readable", log: Logger.storage)
+        } else {
+            Logger.error("Notes directory is NOT readable - TCC permission may be denied", log: Logger.storage)
+        }
     }
 
     // MARK: - CRUD Operations
@@ -54,7 +67,17 @@ actor FileStorageService {
 
     /// Load all notes
     func loadNotes() async throws -> [Note] {
-        let files = try fileManager.contentsOfDirectory(at: notesDirectory, includingPropertiesForKeys: [.contentModificationDateKey])
+        Logger.debug("Loading notes from: \(notesDirectory.path)", log: Logger.storage)
+
+        let files: [URL]
+        do {
+            files = try fileManager.contentsOfDirectory(at: notesDirectory, includingPropertiesForKeys: [.contentModificationDateKey])
+            Logger.info("Found \(files.count) files in notes directory", log: Logger.storage)
+        } catch {
+            Logger.error("Failed to read notes directory: \(error.localizedDescription)", log: Logger.storage)
+            Logger.error("This is likely a TCC permission issue - grant Documents access in System Settings", log: Logger.storage)
+            throw error
+        }
 
         var notes: [Note] = []
         for file in files where file.pathExtension == "md" {
@@ -62,6 +85,8 @@ actor FileStorageService {
                 notes.append(note)
             }
         }
+
+        Logger.info("Loaded \(notes.count) notes", log: Logger.storage)
 
         // Sort by ID (which is date-based) descending
         return notes.sorted { $0.id > $1.id }

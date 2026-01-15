@@ -88,7 +88,7 @@ struct PreferencesView: View {
                 Toggle(isOn: $debugLoggingEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable debug logging")
-                        Text("Logs saved to ~/Documents/Notes/debug-YYYY-MM-DD.log")
+                        Text("Logs saved to ~/Library/Logs/NoteTaker/")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

@@ -142,30 +142,49 @@ class NavigableTextView: NoteTextView {
     var onNavigateNextWithActions: (() -> Void)?
     var onNavigatePreviousWithActions: (() -> Void)?
 
+    /// Check if this is an Option+Arrow navigation event (no Shift/Command/Control)
+    private func isNavigationEvent(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags
+        return flags.contains(.option) &&
+               !flags.contains(.shift) &&
+               !flags.contains(.command) &&
+               !flags.contains(.control)
+    }
+
+    /// Handle navigation for the given key code, returns true if handled
+    private func handleNavigation(keyCode: UInt16) -> Bool {
+        switch keyCode {
+        case 125: // Down arrow - previous (newer) note
+            onNavigatePrevious?()
+            return true
+        case 126: // Up arrow - next (older) note
+            onNavigateNext?()
+            return true
+        case 123: // Left arrow - next note with actions
+            onNavigateNextWithActions?()
+            return true
+        case 124: // Right arrow - previous note with actions
+            onNavigatePreviousWithActions?()
+            return true
+        default:
+            return false
+        }
+    }
+
     // Use performKeyEquivalent to intercept Option+Arrow before macOS word navigation
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // Only handle Option+Arrow (not Option+Shift+Arrow which is for selection)
-        let optionOnly = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option
-
-        if optionOnly {
-            switch event.keyCode {
-            case 125: // Down arrow - previous (newer) note
-                onNavigatePrevious?()
-                return true
-            case 126: // Up arrow - next (older) note
-                onNavigateNext?()
-                return true
-            case 123: // Left arrow - next note with actions
-                onNavigateNextWithActions?()
-                return true
-            case 124: // Right arrow - previous note with actions
-                onNavigatePreviousWithActions?()
-                return true
-            default:
-                break
-            }
+        if isNavigationEvent(event) && handleNavigation(keyCode: event.keyCode) {
+            return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    // Fallback: also check in keyDown in case performKeyEquivalent isn't called
+    override func keyDown(with event: NSEvent) {
+        if isNavigationEvent(event) && handleNavigation(keyCode: event.keyCode) {
+            return // Event handled, don't call super
+        }
+        super.keyDown(with: event)
     }
 }
 

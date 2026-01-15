@@ -11,6 +11,7 @@ struct PreferencesView: View {
     @State private var originalEndpoint: String = ""
     @State private var originalApiKey: String = ""
     @State private var originalModel: String = ""
+    @State private var debugLoggingEnabled: Bool = false
 
     private let defaults = UserDefaults.standard
 
@@ -77,6 +78,26 @@ struct PreferencesView: View {
             }
             .frame(height: 24)
 
+            Divider()
+
+            // Debug Logging Section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Debug Logging")
+                    .font(.headline)
+
+                Toggle(isOn: $debugLoggingEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable debug logging")
+                        Text("Logs saved to ~/Documents/Notes/debug-YYYY-MM-DD.log")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .onChange(of: debugLoggingEnabled) { newValue in
+                    defaults.set(newValue, forKey: "debug_logging_enabled")
+                }
+            }
+
             Spacer()
 
             // Buttons
@@ -96,7 +117,7 @@ struct PreferencesView: View {
             }
         }
         .padding(20)
-        .frame(width: 500, height: 320)
+        .frame(width: 500, height: 400)
         .onAppear {
             loadSettings()
         }
@@ -116,6 +137,7 @@ struct PreferencesView: View {
         endpoint = defaults.string(forKey: "llm_endpoint") ?? "https://api.openai.com/v1/chat/completions"
         apiKey = defaults.string(forKey: "llm_api_key") ?? ""
         model = defaults.string(forKey: "llm_model") ?? "gpt-4o-mini"
+        debugLoggingEnabled = defaults.bool(forKey: "debug_logging_enabled")
 
         originalEndpoint = endpoint
         originalApiKey = apiKey

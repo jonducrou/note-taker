@@ -59,6 +59,8 @@ cat > "${APP_DIR}/Contents/Info.plist" << EOF
     <string>Note Taker uses the microphone for real-time speech transcription during note-taking.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Note Taker uses speech recognition to transcribe your voice into text notes.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Note Taker stores your notes in the Documents folder for easy access and backup.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>CFBundleIconFile</key>
@@ -81,6 +83,10 @@ fi
 
 # Create PkgInfo
 echo -n "APPL????" > "${APP_DIR}/Contents/PkgInfo"
+
+# Code sign the app (ad-hoc signing for local builds)
+echo "Code signing app bundle..."
+codesign --force --deep --sign - "${APP_DIR}"
 
 echo "App bundle created at ${APP_DIR}"
 

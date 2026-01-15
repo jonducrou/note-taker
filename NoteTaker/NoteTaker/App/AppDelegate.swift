@@ -83,6 +83,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupGlobalHotkey() {
+        // Request accessibility permission (required for global hotkeys)
+        // This will prompt the user if not already granted
+        if !PermissionsManager.shared.hasAccessibilityPermission {
+            Logger.info("Requesting accessibility permission for global hotkey", log: Logger.general)
+            PermissionsManager.shared.requestAccessibilityPermission()
+        } else {
+            Logger.info("Accessibility permission already granted", log: Logger.general)
+        }
+
         hotkeyManager = HotkeyManager()
         hotkeyManager?.register(keyCode: 45, modifiers: [.command, .shift]) { [weak self] in
             self?.toggleMainWindow()

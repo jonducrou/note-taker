@@ -25,6 +25,8 @@ class HotkeyManager {
     func register(keyCode: UInt32, modifiers: NSEvent.ModifierFlags, callback: @escaping () -> Void) {
         self.callback = callback
 
+        Logger.info("Registering global hotkey (keyCode: \(keyCode))", log: Logger.general)
+
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
@@ -42,7 +44,10 @@ class HotkeyManager {
             &eventHandler
         )
 
-        guard status == noErr else { return }
+        guard status == noErr else {
+            Logger.error("Failed to install event handler: \(status)", log: Logger.general)
+            return
+        }
 
         var carbonModifiers: UInt32 = 0
         if modifiers.contains(.command) {
@@ -63,7 +68,7 @@ class HotkeyManager {
             id: 1
         )
 
-        _ = RegisterEventHotKey(
+        let registerStatus = RegisterEventHotKey(
             keyCode,
             carbonModifiers,
             hotkeyID,
@@ -71,6 +76,12 @@ class HotkeyManager {
             0,
             &hotkeyRef
         )
+
+        if registerStatus == noErr {
+            Logger.info("Global hotkey registered successfully", log: Logger.general)
+        } else {
+            Logger.error("Failed to register global hotkey: \(registerStatus)", log: Logger.general)
+        }
     }
 
     /// Unregister the global hotkey

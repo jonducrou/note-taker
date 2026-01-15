@@ -1,12 +1,28 @@
 import AVFoundation
 import Speech
 import AppKit
+import ApplicationServices
 
 /// Manager for requesting and checking system permissions
 class PermissionsManager {
     static let shared = PermissionsManager()
 
     private init() {}
+
+    // MARK: - Accessibility (required for global hotkeys)
+
+    /// Check if accessibility access is granted (required for global hotkeys)
+    var hasAccessibilityPermission: Bool {
+        AXIsProcessTrusted()
+    }
+
+    /// Request accessibility access - prompts the user if not granted
+    /// Returns true if already granted, false if user needs to enable it
+    @discardableResult
+    func requestAccessibilityPermission() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
+    }
 
     // MARK: - Microphone
 

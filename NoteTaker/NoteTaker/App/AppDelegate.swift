@@ -206,6 +206,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     Logger.info("User granted access to: \(url.path)", log: Logger.storage)
                     // Store security-scoped bookmark for future access
                     self.storeSecurityBookmark(for: url)
+
+                    // Reload notes now that we have access
+                    NotificationCenter.default.post(name: .reloadNotes, object: nil)
                 }
             }
         }

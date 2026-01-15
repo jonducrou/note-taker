@@ -4,8 +4,9 @@ import Foundation
 actor FileStorageService {
     static let shared = FileStorageService()
 
-    private let notesDirectory: URL
+    private var notesDirectory: URL
     private let fileManager = FileManager.default
+    private var securityScopedURL: URL?
 
     init() {
         let documentsPath = fileManager.homeDirectoryForCurrentUser
@@ -14,6 +15,13 @@ actor FileStorageService {
 
         self.notesDirectory = documentsPath
         Logger.info("Notes directory: \(documentsPath.path)", log: Logger.storage)
+
+        // Try to restore from security-scoped bookmark first
+        if let bookmarkedURL = Self.restoreSecurityScopedBookmark() {
+            self.notesDirectory = bookmarkedURL
+            self.securityScopedURL = bookmarkedURL
+            Logger.info("Using security-scoped bookmark URL: \(bookmarkedURL.path)", log: Logger.storage)
+        }
 
         // Ensure directory exists
         do {
@@ -24,10 +32,57 @@ actor FileStorageService {
         }
 
         // Check if we can access the directory
-        if fileManager.isReadableFile(atPath: documentsPath.path) {
+        if fileManager.isReadableFile(atPath: notesDirectory.path) {
             Logger.info("Notes directory is readable", log: Logger.storage)
         } else {
             Logger.error("Notes directory is NOT readable - TCC permission may be denied", log: Logger.storage)
+        }
+    }
+
+    /// Restore security-scoped bookmark from UserDefaults
+    private static func restoreSecurityScopedBookmark() -> URL? {
+        guard let bookmarkData = UserDefaults.standard.data(forKey: "notesDirectoryBookmark") else {
+            return nil
+        }
+
+        do {
+            var isStale = false
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+
+            if isStale {
+                Logger.info("Security-scoped bookmark is stale", log: Logger.storage)
+                return nil
+            }
+
+            // Start accessing the security-scoped resource
+            if url.startAccessingSecurityScopedResource() {
+                Logger.info("Successfully accessed security-scoped resource", log: Logger.storage)
+                return url
+            } else {
+                Logger.error("Failed to start accessing security-scoped resource", log: Logger.storage)
+            }
+        } catch {
+            Logger.error("Failed to resolve security-scoped bookmark: \(error.localizedDescription)", log: Logger.storage)
+        }
+
+        return nil
+    }
+
+    /// Refresh the notes directory from security-scoped bookmark
+    /// Call this after the user grants folder access via NSOpenPanel
+    func refreshFromBookmark() {
+        if let bookmarkedURL = Self.restoreSecurityScopedBookmark() {
+            // Stop accessing the old URL if we had one
+            securityScopedURL?.stopAccessingSecurityScopedResource()
+
+            self.notesDirectory = bookmarkedURL
+            self.securityScopedURL = bookmarkedURL
+            Logger.info("Refreshed notes directory from bookmark: \(bookmarkedURL.path)", log: Logger.storage)
         }
     }
 

@@ -22,4 +22,5 @@ struct NoteTakerApp: App {
 extension Notification.Name {
     static let createNewNote = Notification.Name("createNewNote")
     static let loadNote = Notification.Name("loadNote")
+    static let reloadNotes = Notification.Name("reloadNotes")
 }

@@ -62,6 +62,9 @@ struct MainWindowView: View {
                 viewModel.loadNote(byId: noteId)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .reloadNotes)) { _ in
+            viewModel.reloadNotesWithBookmark()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             viewModel.onWindowShown()
         }

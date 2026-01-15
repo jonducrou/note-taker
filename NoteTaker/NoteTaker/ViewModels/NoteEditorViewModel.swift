@@ -216,6 +216,25 @@ class NoteEditorViewModel: ObservableObject {
         }
     }
 
+    /// Reload notes after folder access is granted
+    /// Refreshes the storage from security-scoped bookmark first
+    func reloadNotesWithBookmark() {
+        Task {
+            isLoading = true
+            defer { isLoading = false }
+
+            // Refresh storage from bookmark first
+            await storage.refreshFromBookmark()
+
+            if let note = try? await storage.loadMostRecentNote() {
+                currentNote = note
+                content = note.content
+                previousAudience = note.audience
+                await updateRelatedActions()
+            }
+        }
+    }
+
     func loadNote(byId noteId: String) {
         Task {
             isLoading = true

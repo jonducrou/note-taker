@@ -1,0 +1,79 @@
+# SwiftLint Configuration for NoteTaker
+# Helps catch common issues that lead to crashes and silent failures
+
+# Paths to include
+included:
+  - NoteTaker
+
+# Paths to exclude
+excluded:
+  - .build
+  - NoteTakerTests
+
+# Enabled rules
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - legacy_random
+  - multiline_function_chains
+  - unowned_variable_capture
+  - unused_import
+  - vertical_whitespace_closing_braces
+
+# Disabled rules (too noisy for this project)
+disabled_rules:
+  - line_length
+  - type_body_length
+  - file_length
+  - function_body_length
+
+# Rule configurations
+
+# Catch force unwraps - these can crash
+force_unwrapping:
+  severity: warning
+
+# Catch implicitly unwrapped optionals
+implicitly_unwrapped_optional:
+  severity: warning
+  mode: all_except_iboutlets
+
+# Catch empty catch blocks (silent failures)
+# Note: SwiftLint doesn't have a built-in rule for this,
+# but we document the pattern to watch for
+
+# Custom rules
+custom_rules:
+  # Catch empty catch blocks (silent error swallowing)
+  empty_catch_block:
+    name: "Empty Catch Block"
+    regex: 'catch\s*\{\s*\n?\s*//[^\n]*\n?\s*\}'
+    message: "Empty catch blocks hide errors. Log the error or handle it properly."
+    severity: warning
+
+  # Catch force unwrap on data encoding
+  force_unwrap_encoding:
+    name: "Force Unwrap on Encoding"
+    regex: '\.data\(using:\s*\.[a-zA-Z]+\)!'
+    message: "Avoid force unwrapping data encoding. Use guard let or if let."
+    severity: warning
+
+  # Catch FileHandle without defer close
+  # This is a simplified pattern - may have false positives
+  filehandle_without_defer:
+    name: "FileHandle Without Defer"
+    regex: 'FileHandle\(for(?:Reading|Writing|Updating)To:'
+    message: "Ensure FileHandle is closed with defer { try? handle.close() }"
+    severity: warning
+
+  # Catch conditional tap removal (the SIGABRT pattern)
+  conditional_tap_removal:
+    name: "Conditional Tap Removal"
+    regex: 'if\s+\w+\.isRunning\s*\{[^}]*removeTap'
+    message: "Remove audio tap unconditionally to prevent SIGABRT crashes."
+    severity: error
+
+# Reporter type
+reporter: "xcode"

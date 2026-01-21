@@ -175,10 +175,12 @@ class SpeechRecognizer: ObservableObject {
     }
 
     func stopRecording() {
+        // Always stop engine if running
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        // Always remove tap (safe to call even if not installed)
+        audioEngine.inputNode.removeTap(onBus: 0)
 
         recognitionRequest?.endAudio()
 

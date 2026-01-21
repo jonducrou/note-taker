@@ -84,15 +84,8 @@ class HybridDualTranscriber {
             throw SpeechRecognizerError.recognizerNotAvailable
         }
 
-        // Clean up any existing session
-        if micAudioEngine.isRunning {
-            micAudioEngine.stop()
-            micAudioEngine.inputNode.removeTap(onBus: 0)
-        }
-        micRecognitionRequest?.endAudio()
-        micRecognitionRequest = nil
-        micRecognitionTask?.cancel()
-        micRecognitionTask = nil
+        // Always clean up previous state to prevent duplicate tap crashes
+        cleanupMicrophoneResources()
 
         // Create recognition request
         micRecognitionRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -126,10 +119,17 @@ class HybridDualTranscriber {
     }
 
     private func stopMicrophoneCapture() {
+        cleanupMicrophoneResources()
+    }
+
+    /// Clean up all microphone resources to prevent state corruption
+    private func cleanupMicrophoneResources() {
+        // Always stop engine if running
         if micAudioEngine.isRunning {
             micAudioEngine.stop()
-            micAudioEngine.inputNode.removeTap(onBus: 0)
         }
+        // Always remove tap (safe to call even if not installed)
+        micAudioEngine.inputNode.removeTap(onBus: 0)
         micRecognitionRequest?.endAudio()
         micRecognitionRequest = nil
         micRecognitionTask?.cancel()

@@ -135,17 +135,22 @@ class NoteEditorViewModel: ObservableObject {
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let line = "[\(timestamp)] \(text)\n"
 
+        guard let lineData = line.data(using: .utf8) else {
+            Logger.error("Failed to encode snippet text as UTF-8", log: Logger.storage)
+            return
+        }
+
         do {
             if FileManager.default.fileExists(atPath: snippetPath.path) {
                 let handle = try FileHandle(forWritingTo: snippetPath)
-                handle.seekToEndOfFile()
-                handle.write(line.data(using: .utf8)!)
-                handle.closeFile()
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: lineData)
             } else {
                 try line.write(to: snippetPath, atomically: true, encoding: .utf8)
             }
         } catch {
-            // Failed to write snippet
+            Logger.error("Failed to write snippet: \(error.localizedDescription)", log: Logger.storage)
         }
     }
 
@@ -158,19 +163,24 @@ class NoteEditorViewModel: ObservableObject {
         let separator = "===================================\n\n"
         let transcriptContent = header + separator + text + "\n"
 
+        guard let contentData = transcriptContent.data(using: .utf8) else {
+            Logger.error("Failed to encode transcript as UTF-8", log: Logger.storage)
+            return
+        }
+
         do {
             if FileManager.default.fileExists(atPath: transcriptPath.path) {
                 let handle = try FileHandle(forWritingTo: transcriptPath)
-                handle.seekToEndOfFile()
-                handle.write(transcriptContent.data(using: .utf8)!)
-                handle.closeFile()
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: contentData)
             } else {
                 try transcriptContent.write(to: transcriptPath, atomically: true, encoding: .utf8)
             }
 
             await extractActionsFromTranscript(noteId: noteId, transcript: text)
         } catch {
-            // Failed to write transcript
+            Logger.error("Failed to write transcript: \(error.localizedDescription)", log: Logger.storage)
         }
     }
 
@@ -194,9 +204,10 @@ class NoteEditorViewModel: ObservableObject {
 
             if !actions.isEmpty {
                 try await service.saveActions(actions, for: noteId)
+                Logger.info("Extracted \(actions.count) actions from transcript", log: Logger.actions)
             }
         } catch {
-            // Action extraction failed
+            Logger.error("Action extraction failed: \(error.localizedDescription)", log: Logger.actions)
         }
     }
 

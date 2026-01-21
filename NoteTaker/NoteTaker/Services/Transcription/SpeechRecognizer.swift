@@ -35,14 +35,8 @@ class SpeechRecognizer: ObservableObject {
             throw SpeechRecognizerError.recognizerNotAvailable
         }
 
-        if audioEngine.isRunning {
-            audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
-        }
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        // Always clean up previous state to prevent duplicate tap crashes
+        cleanupAudioResources()
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
 
@@ -61,6 +55,14 @@ class SpeechRecognizer: ObservableObject {
 
             if let error = error {
                 let nsError = error as NSError
+
+                // Check for Siri/Dictation disabled error
+                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1101 {
+                    self.handleError(SpeechRecognizerError.siriDictationDisabled)
+                    return
+                }
+
+                // Handle silence timeout by restarting
                 if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
                     DispatchQueue.main.async {
                         self.restartRecognition()
@@ -87,6 +89,10 @@ class SpeechRecognizer: ObservableObject {
         }
 
         let inputNode = audioEngine.inputNode
+
+        // Always remove any existing tap before installing (prevents SIGABRT crash)
+        inputNode.removeTap(onBus: 0)
+
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
@@ -101,6 +107,18 @@ class SpeechRecognizer: ObservableObject {
             self.transcript = ""
             self.error = nil
         }
+    }
+
+    /// Clean up all audio resources to prevent state corruption
+    private func cleanupAudioResources() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        recognitionTask?.cancel()
+        recognitionTask = nil
     }
 
     /// Restart recognition after silence timeout (preserves accumulated transcript)
@@ -196,6 +214,7 @@ enum SpeechRecognizerError: LocalizedError {
     case recognizerNotAvailable
     case requestCreationFailed
     case permissionDenied
+    case siriDictationDisabled
 
     var errorDescription: String? {
         switch self {
@@ -205,6 +224,8 @@ enum SpeechRecognizerError: LocalizedError {
             return "Failed to create speech recognition request."
         case .permissionDenied:
             return "Speech recognition permission was denied."
+        case .siriDictationDisabled:
+            return "Enable Siri or Dictation in System Settings to use transcription."
         }
     }
 }
